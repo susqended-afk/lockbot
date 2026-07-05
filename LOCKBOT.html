@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0B0E13" />
+<title>LOCKBOT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  * { margin: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #0B0E13; overscroll-behavior: none; }
+  input { -webkit-appearance: none; }
+  ::selection { background: #1FC77D33; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ============================================================
+   LOCKBOT — standalone app build
+   Open in Safari/Chrome → Share → Add to Home Screen
+   ============================================================ */
+
+const C = {
+  bg: "#0B0E13", card: "#131820", cardAlt: "#0E1219",
+  border: "#222B37", borderSoft: "#1A212B",
+  text: "#E9EDF2", mut: "#8B95A3", dim: "#5B6572",
+  green: "#1FC77D", greenDim: "#123324", greenBorder: "#1d4d35",
+  red: "#F1425A", amber: "#E3A93B", white: "#FFFFFF",
+};
+
+const PP_PAYOUTS = { power: { 2: 3, 3: 5, 4: 10, 5: 20, 6: 37.5 }, flex: { 3: 2.25, 4: 5, 5: 10, 6: 25 } };
+const LEG_BREAKEVEN = 0.5774;
+
+const SPORTS = [
+  { key: "soccer_fifa_world_cup", short: "WC" },
+  { key: "baseball_mlb", short: "MLB" },
+  { key: "basketball_nba", short: "NBA" },
+  { key: "basketball_wnba", short: "WNBA" },
+  { key: "americanfootball_nfl", short: "NFL" },
+  { key: "soccer_epl", short: "EPL" },
+  { key: "soccer_uefa_champs_league", short: "UCL" },
+  { key: "soccer_usa_mls", short: "MLS" },
+  { key: "soccer_mexico_ligamx", short: "Liga MX" },
+  { key: "icehockey_nhl", short: "NHL" },
+  { key: "mma_mixed_martial_arts", short: "MMA" },
+];
+
+const SOCCER_PROPS = "player_shots_on_target,player_shots";
+const PROP_MARKETS = {
+  soccer_fifa_world_cup: SOCCER_PROPS,
+  soccer_epl: SOCCER_PROPS,
+  soccer_uefa_champs_league: SOCCER_PROPS,
+  soccer_usa_mls: SOCCER_PROPS,
+  soccer_mexico_ligamx: SOCCER_PROPS,
+  basketball_nba: "player_points,player_rebounds,player_assists,player_threes",
+  basketball_wnba: "player_points,player_rebounds,player_assists,player_threes",
+  baseball_mlb: "pitcher_strikeouts,batter_total_bases,batter_hits,batter_home_runs",
+  americanfootball_nfl: "player_pass_yds,player_rush_yds,player_receptions,player_reception_yds",
+  icehockey_nhl: "player_points,player_shots_on_goal",
+};
+
+const MARKET_LABELS = {
+  player_points: "Points", player_rebounds: "Rebounds", player_assists: "Assists", player_threes: "Threes",
+  pitcher_strikeouts: "Strikeouts", batter_total_bases: "Total Bases", batter_hits: "Hits", batter_home_runs: "Home Runs",
+  player_pass_yds: "Pass Yds", player_rush_yds: "Rush Yds", player_receptions: "Receptions", player_reception_yds: "Rec Yds",
+  player_shots_on_target: "Shots on Target", player_shots: "Shots", player_shots_on_goal: "Shots on Goal",
+};
+
+/* ---------------- math ---------------- */
+const impliedProb = (a) => (a > 0 ? 100 / (a + 100) : -a / (-a + 100));
+const devig = (pO, pU) => { const t = pO + pU; return t > 0 ? pO / t : 0.5; };
+const fmtPct = (p) => (p * 100).toFixed(1) + "%";
+const fmtOdds = (o) => (o > 0 ? `+${o}` : `${o}`);
+const shortName = (s) => { const f = SPORTS.find((x) => x.key === s); return f ? f.short : s.split("_")[0].toUpperCase(); };
+
+/* ---------------- storage (localStorage in real browser) ---------------- */
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+};
+
+/* ---------------- reasoning engine ---------------- */
+function buildReasoning(p) {
+  const r = [];
+  const sb = p.books.filter((b) => !b.isDFS && b.overOdds != null);
+  if (p.ppLine != null && Math.abs(p.lineGap) >= 0.5) {
+    const soft = p.side === "OVER" ? "below" : "above";
+    r.push({ tag: "LINE GAP", text: `PrizePicks hanging ${p.ppLine} while the book consensus sits at ${p.medLine}. PP is ${Math.abs(p.lineGap)} ${soft} market — the ${p.side.toLowerCase()} is buying the softer number.` });
+  }
+  if (p.edge > 0) r.push({ tag: "EDGE", text: `De-vigged model probability is ${fmtPct(p.prob)}, clearing the 57.7% PrizePicks power breakeven by ${fmtPct(p.edge)}. Long-run +EV territory.` });
+  if (sb.length) {
+    const avgOver = sb.reduce((a, b) => a + b.overOdds, 0) / sb.length;
+    const avgUnder = sb.reduce((a, b) => a + (b.underOdds || 0), 0) / sb.length;
+    const juiced = avgOver < avgUnder ? "OVER" : "UNDER";
+    if (juiced === p.side && Math.abs(avgOver - avgUnder) > 15)
+      r.push({ tag: "MARKET LEAN", text: `Books are juicing the ${p.side.toLowerCase()} (avg ${fmtOdds(Math.round(p.side === "OVER" ? avgOver : avgUnder))}). Money and models agree on this side.` });
+  }
+  if (sb.length >= 2) {
+    const probs = sb.map((b) => devig(impliedProb(b.overOdds), impliedProb(b.underOdds)));
+    const mean = probs.reduce((a, b) => a + b, 0) / probs.length;
+    const spread = Math.max(...probs) - Math.min(...probs);
+    if (spread <= 0.03) r.push({ tag: "CONSENSUS", text: `${sb.length} books priced within ±${fmtPct(spread / 2)} of each other (${fmtPct(mean)} avg). Tight agreement — the book number is sharp, the PP line is the outlier.` });
+    else if (spread > 0.06) r.push({ tag: "CAUTION", text: `Books disagree by ${fmtPct(spread)} on this market. Edge may be softer than it reads — size down.`, warn: true });
+  }
+  if (sb.length === 1) r.push({ tag: "CAUTION", text: `Only one sportsbook pricing this market. Consensus is thin — treat the edge as an estimate.`, warn: true });
+  return r;
+}
+
+/* ---------------- edge engine ---------------- */
+function analyzeProps(rawProps, stealThreshold) {
+  const out = [];
+  for (const p of rawProps) {
+    const sbBooks = p.books.filter((b) => !b.isDFS && b.overOdds != null && b.underOdds != null);
+    if (!sbBooks.length) continue;
+    const lines = sbBooks.map((b) => b.line).sort((a, b) => a - b);
+    const medLine = lines[Math.floor(lines.length / 2)];
+    const probs = sbBooks.map((b) => devig(impliedProb(b.overOdds), impliedProb(b.underOdds)));
+    const consOverProb = probs.reduce((a, b) => a + b, 0) / probs.length;
+    const pp = p.books.find((b) => b.isDFS);
+    const ppLine = pp ? pp.line : null;
+    let side, prob, lineGap = 0;
+    if (ppLine != null) {
+      lineGap = +(medLine - ppLine).toFixed(2);
+      const scale = medLine > 50 ? 0.004 : medLine > 10 ? 0.03 : 0.07;
+      const shifted = Math.min(0.85, Math.max(0.15, consOverProb + lineGap * scale));
+      if (shifted >= 0.5) { side = "OVER"; prob = shifted; } else { side = "UNDER"; prob = 1 - shifted; }
+    } else {
+      if (consOverProb >= 0.5) { side = "OVER"; prob = consOverProb; } else { side = "UNDER"; prob = 1 - consOverProb; }
+    }
+    const edge = prob - LEG_BREAKEVEN;
+    const row = Object.assign({}, p, { medLine, ppLine, lineGap, side, prob, edge, isSteal: edge >= stealThreshold, bookCount: sbBooks.length });
+    row.reasons = buildReasoning(row);
+    row.grade = edge >= 0.06 ? "A" : edge >= 0.03 ? "B" : edge > 0 ? "C" : "—";
+    out.push(row);
+  }
+  return out.sort((a, b) => b.edge - a.edge);
+}
+
+/* ============================================================ */
+
+function App() {
+  const [tab, setTab] = useState("props");
+  const [handle, setHandle] = useState("");
+  const [handleInput, setHandleInput] = useState("");
+  const [onboarded, setOnboarded] = useState(null);
+  const [apiKey, setApiKey] = useState("");
+  const [anthropicKey, setAnthropicKey] = useState("");
+  const [refreshSec, setRefreshSec] = useState(120);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [stealThresh, setStealThresh] = useState(0.03);
+  const [activeSports, setActiveSports] = useState(["soccer_fifa_world_cup", "baseball_mlb", "soccer_usa_mls"]);
+  const [eventsPerSport, setEventsPerSport] = useState(3);
+  const [autoSports, setAutoSports] = useState(true);
+
+  const [props_, setProps] = useState([]);
+  const [games, setGames] = useState([]);
+  const [locks, setLocks] = useState([]);
+  const [seenLocks, setSeenLocks] = useState(new Set());
+  const [slip, setSlip] = useState([]);
+  const [status, setStatus] = useState("Add your API key to load today's board");
+  const [quota, setQuota] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [sportFilter, setSportFilter] = useState("all");
+  const [flexMode, setFlexMode] = useState(false);
+  const [unseen, setUnseen] = useState(0);
+  const [openWhy, setOpenWhy] = useState({});
+  const [toast, setToast] = useState(null);
+  const [shareHistory, setShareHistory] = useState([]);
+
+  const timerRef = useRef(null);
+  const stateRef = useRef({});
+  stateRef.current = { apiKey, activeSports, eventsPerSport, autoSports };
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2600); };
+
+  /* ---- load saved ---- */
+  useEffect(() => {
+    const raw = store.get("lockbot-settings");
+    if (raw) {
+      try {
+        const s = JSON.parse(raw);
+        if (s.handle) { setHandle(s.handle); setOnboarded(true); } else setOnboarded(false);
+        if (s.apiKey) setApiKey(s.apiKey);
+        if (s.anthropicKey) setAnthropicKey(s.anthropicKey);
+        if (s.refreshSec) setRefreshSec(s.refreshSec);
+        if (s.stealThresh) setStealThresh(s.stealThresh);
+        if (s.activeSports) setActiveSports(s.activeSports);
+        if (s.eventsPerSport) setEventsPerSport(s.eventsPerSport);
+        if (s.autoSports != null) setAutoSports(s.autoSports);
+      } catch { setOnboarded(false); }
+    } else setOnboarded(false);
+    const sh = store.get("lockbot-shares");
+    if (sh) { try { setShareHistory(JSON.parse(sh)); } catch {} }
+  }, []);
+
+  const saveSettings = (patch = {}) => {
+    store.set("lockbot-settings", JSON.stringify(Object.assign(
+      { handle, apiKey, anthropicKey, refreshSec, stealThresh, activeSports, eventsPerSport, autoSports }, patch)));
+  };
+
+  const analyzed = useMemo(() => analyzeProps(props_, stealThresh), [props_, stealThresh]);
+
+  /* ---- lock feed + notifications ---- */
+  useEffect(() => {
+    const fresh = analyzed.filter((p) => p.isSteal && !seenLocks.has(p.id + p.side + p.medLine));
+    if (!fresh.length) return;
+    const next = new Set(seenLocks);
+    fresh.forEach((p) => next.add(p.id + p.side + p.medLine));
+    setSeenLocks(next);
+    setLocks((prev) => [
+      ...fresh.map((p) => Object.assign({}, p, { at: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })),
+      ...prev,
+    ].slice(0, 60));
+    setUnseen((c) => c + fresh.length);
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        fresh.slice(0, 3).forEach((p) =>
+          new Notification(`LOCKBOT · ${p.player} ${p.side} ${p.ppLine != null ? p.ppLine : p.medLine}`, {
+            body: `${MARKET_LABELS[p.market] || p.market} — ${fmtPct(p.prob)} model prob, +${fmtPct(p.edge)} edge.`,
+          }));
+      }
+    } catch {}
+  }, [analyzed]);
+
+  /* ---- The Odds API ---- */
+  const fetchLive = useCallback(async () => {
+    const { apiKey, activeSports, eventsPerSport, autoSports } = stateRef.current;
+    if (!apiKey) { setStatus("No API key — open Settings"); return; }
+    setLoading(true);
+    setStatus("Refreshing board…");
+    const newProps = [], newGames = [];
+    const now = Date.now();
+    const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+    const isToday = (t) => {
+      const start = new Date(t).getTime();
+      return start <= endOfToday.getTime() && start > now - 6 * 3600 * 1000;
+    };
+    try {
+      let sportsToFetch = activeSports;
+      if (autoSports) {
+        try {
+          const sRes = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${apiKey}`);
+          const rem0 = sRes.headers.get("x-requests-remaining");
+          if (rem0) setQuota(rem0);
+          if (sRes.status === 401) { setStatus("Invalid API key — check Settings"); setLoading(false); return; }
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const activeKeys = new Set(sData.filter((s) => s.active).map((s) => s.key));
+            const inSeason = SPORTS.map((s) => s.key).filter((k) => activeKeys.has(k));
+            if (inSeason.length) { sportsToFetch = inSeason; setActiveSports(inSeason); }
+          }
+        } catch {}
+      }
+      for (const sport of sportsToFetch) {
+        const gRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
+        const rem = gRes.headers.get("x-requests-remaining");
+        if (rem) setQuota(rem);
+        if (!gRes.ok) continue;
+        const gAll = await gRes.json();
+        const gData = gAll.filter((ev) => isToday(ev.commence_time));
+        for (const ev of gData) {
+          const books = ev.bookmakers.map((bk) => {
+            const h2h = bk.markets.find((m) => m.key === "h2h");
+            const sp = bk.markets.find((m) => m.key === "spreads");
+            const tot = bk.markets.find((m) => m.key === "totals");
+            const h = h2h && h2h.outcomes.find((o) => o.name === ev.home_team);
+            const a = h2h && h2h.outcomes.find((o) => o.name === ev.away_team);
+            const sh = sp && sp.outcomes.find((o) => o.name === ev.home_team);
+            return { book: bk.title, homeML: h && h.price, awayML: a && a.price, spread: sh && sh.point, total: tot && tot.outcomes && tot.outcomes[0] && tot.outcomes[0].point };
+          }).filter((b) => b.homeML != null);
+          if (books.length)
+            newGames.push({
+              id: ev.id, sport, home: ev.home_team, away: ev.away_team,
+              startMs: new Date(ev.commence_time).getTime(),
+              live: new Date(ev.commence_time).getTime() <= now,
+              commence: new Date(ev.commence_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              books,
+            });
+        }
+        const markets = PROP_MARKETS[sport];
+        if (!markets) continue;
+        const propEvents = [...gData].sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time)).slice(0, eventsPerSport);
+        for (const ev of propEvents) {
+          try {
+            const pRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/events/${ev.id}/odds?apiKey=${apiKey}&regions=us,us_dfs&markets=${markets}&oddsFormat=american`);
+            const rem2 = pRes.headers.get("x-requests-remaining");
+            if (rem2) setQuota(rem2);
+            if (!pRes.ok) continue;
+            const pData = await pRes.json();
+            const byKey = {};
+            for (const bk of (pData.bookmakers || [])) {
+              const isDFS = /prizepicks|underdog|sleeper/i.test(bk.key + bk.title);
+              for (const m of (bk.markets || [])) {
+                for (const o of (m.outcomes || [])) {
+                  const player = o.description || o.name;
+                  const k = `${player}::${m.key}`;
+                  if (!byKey[k]) byKey[k] = {
+                    id: `${ev.id}-${k}`, sport,
+                    event: `${ev.away_team} @ ${ev.home_team}`,
+                    commence: new Date(ev.commence_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    player, market: m.key, _b: {},
+                  };
+                  const row = byKey[k];
+                  if (!row._b[bk.title]) row._b[bk.title] = { book: bk.title, isDFS, line: o.point };
+                  if (o.name === "Over") { row._b[bk.title].overOdds = o.price; row._b[bk.title].line = o.point; }
+                  if (o.name === "Under") row._b[bk.title].underOdds = o.price;
+                }
+              }
+            }
+            Object.values(byKey).forEach((row) => {
+              row.books = Object.values(row._b); delete row._b;
+              if (row.books.length >= 2 || row.books.some((b) => b.isDFS)) newProps.push(row);
+            });
+          } catch {}
+        }
+      }
+      newGames.sort((a, b) => (b.live - a.live) || (a.startMs - b.startMs));
+      setProps(newProps);
+      setGames(newGames);
+      setLastRefresh(new Date());
+      const liveNow = newGames.filter((g) => g.live).length;
+      setStatus(`Today · ${newGames.length} games${liveNow ? ` (${liveNow} live)` : ""} · ${newProps.length} props`);
+    } catch (e) {
+      setStatus("Fetch failed — check connection");
+    }
+    setLoading(false);
+  }, []);
+
+  /* ---- boot fetch + auto refresh ---- */
+  const bootFetched = useRef(false);
+  useEffect(() => {
+    if (onboarded && apiKey && !bootFetched.current) { bootFetched.current = true; fetchLive(); }
+  }, [onboarded, apiKey]);
+
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (autoRefresh && apiKey) timerRef.current = setInterval(fetchLive, Math.max(30, refreshSec) * 1000);
+    return () => timerRef.current && clearInterval(timerRef.current);
+  }, [autoRefresh, refreshSec, apiKey, fetchLive]);
+
+  /* ---- slip math ---- */
+  const toggleSlip = (p) =>
+    setSlip((prev) => prev.find((x) => x.id === p.id) ? prev.filter((x) => x.id !== p.id) : prev.length < 6 ? [...prev, p] : prev);
+  const inSlip = (id) => slip.some((x) => x.id === id);
+  const n = slip.length;
+  const combinedProb = slip.reduce((a, p) => a * p.prob, 1);
+  const payout = n >= 2 ? (flexMode && n >= 3 ? PP_PAYOUTS.flex[n] : PP_PAYOUTS.power[n]) : 0;
+  const ev = payout ? combinedProb * payout - 1 : 0;
+  const fairPayout = combinedProb > 0 ? 1 / combinedProb : 0;
+  const mispriced = payout && fairPayout < payout;
+
+  /* ---- share slip to the crew (native share sheet → group chat) ---- */
+  const shareSlip = async () => {
+    if (!n) return;
+    const lines = slip.map((p) => `• ${p.player} ${p.side} ${p.ppLine != null ? p.ppLine : p.medLine} ${MARKET_LABELS[p.market] || p.market} (${fmtPct(p.prob)}, ${p.grade})`).join("\n");
+    const text = `🔒 LOCKBOT — @${handle}\n${n}-pick ${flexMode && n >= 3 ? "Flex" : "Power"} · ${fmtPct(combinedProb)} hit · ${payout}× pays · ${ev > 0 ? "+" : ""}${(ev * 100).toFixed(1)}% EV\n\n${lines}`;
+    const entry = { at: new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }), text };
+    const nextHist = [entry, ...shareHistory].slice(0, 20);
+    setShareHistory(nextHist);
+    store.set("lockbot-shares", JSON.stringify(nextHist));
+    try {
+      if (navigator.share) await navigator.share({ text });
+      else { await navigator.clipboard.writeText(text); showToast("Copied — paste it in the group chat"); }
+    } catch {}
+  };
+
+  /* ---- AI breakdown (optional Anthropic key) ---- */
+  const runAI = async () => {
+    if (!anthropicKey) { showToast("Add an Anthropic API key in Settings for AI reads"); setTab("settings"); return; }
+    setAiLoading(true); setAiResult(null);
+    const top = analyzed.slice(0, 14).map((p) => ({
+      player: p.player, stat: MARKET_LABELS[p.market] || p.market, event: p.event, sport: shortName(p.sport),
+      side: p.side, ppLine: p.ppLine, bookLine: p.medLine, modelProb: +p.prob.toFixed(3), edge: +p.edge.toFixed(3),
+      signals: p.reasons.map((r) => r.tag),
+    }));
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: `You are LOCKBOT's betting analyst. Board of player props with de-vigged consensus probabilities, PrizePicks line gaps, and signal tags:\n${JSON.stringify(top)}\n\nPer-leg breakeven for a PrizePicks 2-pick power is 57.7%. Rank the 5 strongest legs with one concise professional sentence of reasoning each, build one 2-leg power and one 3-leg flex, and flag traps (thin coverage, correlated legs, blowout/rest risk). Respond with ONLY a raw JSON object — no markdown, no code fences, no text before or after: {"topLegs":[{"pick":"","why":""}],"powerPlay":{"legs":["",""],"combined":""},"flexPlay":{"legs":["","",""],"combined":""},"traps":[""]}`,
+          }],
+        }),
+      });
+      if (!res.ok) { setAiResult({ error: `AI request failed (${res.status}) — tap to retry` }); setAiLoading(false); return; }
+      const data = await res.json();
+      if (data.error) { setAiResult({ error: `AI error: ${(data.error.message || "unknown").slice(0, 80)} — tap to retry` }); setAiLoading(false); return; }
+      const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n").trim();
+      const start = text.indexOf("{"), end = text.lastIndexOf("}");
+      if (start === -1 || end === -1) { setAiResult({ error: "AI returned an unreadable response — tap to retry" }); setAiLoading(false); return; }
+      try { setAiResult(JSON.parse(text.slice(start, end + 1))); }
+      catch { setAiResult({ error: "Couldn't parse AI response — tap to retry" }); }
+    } catch {
+      setAiResult({ error: "AI call failed — network issue. Tap to retry" });
+    }
+    setAiLoading(false);
+  };
+
+  const askNotif = () => { try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch {} };
+
+  const filtered = sportFilter === "all" ? analyzed : analyzed.filter((p) => p.sport === sportFilter);
+  const filteredGames = sportFilter === "all" ? games : games.filter((g) => g.sport === sportFilter);
+  const sportsInData = [...new Set([...analyzed.map((p) => p.sport), ...games.map((g) => g.sport)])];
+  const stealCount = analyzed.filter((p) => p.isSteal).length;
+
+  /* ============================ UI ============================ */
+  const S = styles;
+
+  if (onboarded === false) {
+    return (
+      <div style={Object.assign({}, S.app, { display: "flex", flexDirection: "column", justifyContent: "center", padding: 28, paddingBottom: 28, minHeight: "100vh", boxSizing: "border-box" })}>
+        <div style={Object.assign({}, S.logo, { fontSize: 34, marginBottom: 6 })}>LOCK<span style={{ color: C.green }}>BOT</span></div>
+        <div style={{ color: C.mut, fontSize: 13, lineHeight: 1.6, marginBottom: 28 }}>
+          Edge intelligence for props and parlays. Pick a handle — it tags your slips when you share plays with the crew.
+        </div>
+        <input style={S.input} placeholder="Your handle" value={handleInput} maxLength={16}
+          onChange={(e) => setHandleInput(e.target.value.replace(/\s/g, ""))} />
+        <button
+          onClick={() => {
+            const h = handleInput.trim() || "anon";
+            setHandle(h); setOnboarded(true);
+            store.set("lockbot-settings", JSON.stringify({ handle: h, apiKey, anthropicKey, refreshSec, stealThresh, activeSports, eventsPerSport, autoSports }));
+          }}
+          style={Object.assign({}, S.primaryBtn, { opacity: handleInput.trim() ? 1 : 0.5 })}>
+          Enter LOCKBOT
+        </button>
+        <div style={Object.assign({}, S.disclaimer, { textAlign: "center" })}>Tip: Share → Add to Home Screen to install this as an app.</div>
+      </div>
+    );
+  }
+  if (onboarded === null) return <div style={Object.assign({}, S.app, { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", color: C.dim, fontFamily: "monospace", fontSize: 12 })}>LOCKBOT</div>;
+
+  const GradePill = ({ grade }) => (
+    <span style={Object.assign({}, S.gradePill, {
+      background: grade === "A" ? C.greenDim : "transparent",
+      color: grade === "A" ? C.green : grade === "B" ? C.text : C.dim,
+      borderColor: grade === "A" ? C.greenBorder : C.border,
+    })}>{grade}</span>
+  );
+
+  const Reasoning = ({ p, forceOpen }) => {
+    const open = forceOpen || openWhy[p.id];
+    if (!p.reasons || !p.reasons.length) return null;
+    return (
+      <div style={{ marginBottom: 12 }}>
+        {!forceOpen && (
+          <button onClick={() => setOpenWhy((o) => Object.assign({}, o, { [p.id]: !o[p.id] }))} style={S.whyToggle}>
+            {open ? "Hide analysis" : `Why this play · ${p.reasons.length} signals`} <span style={{ fontSize: 8 }}>{open ? "▲" : "▼"}</span>
+          </button>
+        )}
+        {open && (
+          <div style={S.whyBody}>
+            {p.reasons.map((r, i) => (
+              <div key={i} style={S.reasonRow}>
+                <span style={Object.assign({}, S.reasonTag, { borderColor: r.warn ? "#5c4a16" : C.greenBorder, color: r.warn ? C.amber : C.green })}>{r.tag}</span>
+                <span style={S.reasonText}>{r.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const PropCard = ({ p }) => (
+    <div style={Object.assign({}, S.card, p.isSteal ? S.cardSteal : {})}>
+      {p.isSteal && <div style={S.stealStripe} />}
+      <div style={S.cardHead}>
+        <div style={{ minWidth: 0 }}>
+          <div style={S.playerRow}>
+            <span style={S.player}>{p.player}</span>
+            <GradePill grade={p.grade} />
+            {p.isSteal && <span style={S.stealBadge}>STEAL</span>}
+          </div>
+          <div style={S.meta}>{shortName(p.sport)} · {p.event} · {p.commence}</div>
+        </div>
+        <button onClick={() => toggleSlip(p)} style={Object.assign({}, S.addBtn, inSlip(p.id) ? S.addBtnOn : {})}>
+          {inSlip(p.id) ? "Added ✓" : "Add to slip"}
+        </button>
+      </div>
+      <div style={S.pickRow}>
+        <span style={Object.assign({}, S.sideTag, { background: p.side === "OVER" ? C.greenDim : "#1a2029", color: p.side === "OVER" ? C.green : C.mut, borderColor: p.side === "OVER" ? C.greenBorder : C.border })}>{p.side}</span>
+        <span style={S.bigNum}>{p.ppLine != null ? p.ppLine : p.medLine}</span>
+        <span style={S.statName}>{MARKET_LABELS[p.market] || p.market}</span>
+      </div>
+      <div style={S.barTrack}>
+        <div style={Object.assign({}, S.barFill, { width: `${Math.min(100, p.prob * 100)}%`, background: p.prob >= LEG_BREAKEVEN ? C.green : "#3a4452" })} />
+        <div style={S.barTick} />
+      </div>
+      <div style={S.grid4}>
+        <div><div style={S.kVal}>{fmtPct(p.prob)}</div><div style={S.kKey}>Model prob</div></div>
+        <div><div style={Object.assign({}, S.kVal, { color: p.edge > 0 ? C.green : C.dim })}>{p.edge > 0 ? "+" : ""}{fmtPct(p.edge)}</div><div style={S.kKey}>Edge</div></div>
+        <div><div style={S.kVal}>{p.medLine}</div><div style={S.kKey}>Consensus</div></div>
+        <div><div style={Object.assign({}, S.kVal, { color: p.ppLine != null && Math.abs(p.lineGap) >= 0.5 ? C.green : C.mut })}>{p.ppLine != null ? (p.lineGap > 0 ? `+${p.lineGap}` : p.lineGap) : "—"}</div><div style={S.kKey}>PP gap</div></div>
+      </div>
+      <Reasoning p={p} forceOpen={p.isSteal} />
+      <div style={S.bookRow}>
+        {p.books.map((b) => (
+          <span key={b.book} style={Object.assign({}, S.bookChip, b.isDFS ? S.bookChipDFS : {})}>
+            {b.book} · {b.line}{b.overOdds != null ? ` (${fmtOdds(b.overOdds)})` : ""}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+
+  const GameCard = ({ g }) => {
+    const best = (sel) => {
+      let bb = null;
+      g.books.forEach((b) => { const v = b[sel]; if (v != null && (bb == null || v > bb.v)) bb = { v, book: b.book }; });
+      return bb;
+    };
+    const bH = best("homeML"), bA = best("awayML");
+    const p0 = g.books[0];
+    const pHome = p0 ? devig(impliedProb(p0.homeML), impliedProb(p0.awayML)) : null;
+    return (
+      <div style={S.card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={S.meta}>{shortName(g.sport)} · {g.commence}</div>
+          {g.live && <span style={S.liveBadge}><span style={S.liveDot} />LIVE</span>}
+        </div>
+        <div style={S.matchRow}>
+          <div style={{ flex: 1 }}>
+            <div style={S.team}>{g.away}</div>
+            <div style={S.ml}>{bA ? fmtOdds(bA.v) : "—"} <span style={S.mlBook}>{bA && bA.book}</span></div>
+            {pHome != null && <div style={S.probSm}>{fmtPct(1 - pHome)} win prob</div>}
+          </div>
+          <div style={S.vs}>@</div>
+          <div style={{ flex: 1, textAlign: "right" }}>
+            <div style={S.team}>{g.home}</div>
+            <div style={S.ml}><span style={S.mlBook}>{bH && bH.book}</span> {bH ? fmtOdds(bH.v) : "—"}</div>
+            {pHome != null && <div style={S.probSm}>{fmtPct(pHome)} win prob</div>}
+          </div>
+        </div>
+        <div style={S.bookRow}>
+          {g.books.slice(0, 6).map((b) => (
+            <span key={b.book} style={S.bookChip}>{b.book} · {b.spread != null ? `${b.spread > 0 ? "+" : ""}${b.spread}` : "—"} · O/U {b.total != null ? b.total : "—"}</span>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={S.app}>
+      {toast && <div style={S.toast}>{toast}</div>}
+
+      <div style={S.header}>
+        <div>
+          <div style={S.logo}>LOCK<span style={{ color: C.green }}>BOT</span></div>
+          <div style={S.tagline}>@{handle} · Edge intelligence</div>
+        </div>
+        <div style={S.headerRight}>
+          {quota && <div style={S.quota}>{quota}<div style={S.quotaKey}>calls left</div></div>}
+          <button onClick={() => setTab("settings")} style={S.iconBtn}>⚙</button>
+          <button onClick={fetchLive} disabled={loading} style={S.iconBtn}>{loading ? "···" : "↻"}</button>
+        </div>
+      </div>
+
+      <div style={S.statusBar}>
+        <span style={Object.assign({}, S.dot, { background: apiKey ? C.green : C.dim })} />
+        <span>{status}</span>
+        {lastRefresh && <span style={{ color: C.dim }}>· {lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+        {stealCount > 0 && <span style={S.stealCount}>{stealCount} steal{stealCount > 1 ? "s" : ""} live</span>}
+      </div>
+
+      {(tab === "props" || tab === "matchups") && sportsInData.length > 1 && (
+        <div style={S.filterRow}>
+          <button onClick={() => setSportFilter("all")} style={Object.assign({}, S.chip, sportFilter === "all" ? S.chipOn : {})}>All</button>
+          {sportsInData.map((sk) => (
+            <button key={sk} onClick={() => setSportFilter(sk)} style={Object.assign({}, S.chip, sportFilter === sk ? S.chipOn : {})}>{shortName(sk)}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={S.body}>
+        {tab === "props" && (
+          <React.Fragment>
+            <button onClick={runAI} disabled={aiLoading} style={S.primaryBtn}>
+              {aiLoading ? "Analyzing board…" : "AI breakdown — top legs, builds & traps"}
+            </button>
+            {aiResult && !aiResult.error && (
+              <div style={S.card}>
+                <div style={S.sectionLabel}>AI read</div>
+                {(aiResult.topLegs || []).map((l, i) => (
+                  <div key={i} style={{ marginBottom: 14 }}>
+                    <div style={S.aiPick}><span style={S.aiRank}>{i + 1}</span>{l.pick}</div>
+                    <div style={S.aiWhy}>{l.why}</div>
+                  </div>
+                ))}
+                {aiResult.powerPlay && <div style={S.aiPlay}><b style={{ color: C.green }}>2-Pick Power</b> — {(aiResult.powerPlay.legs || []).join(" + ")} · {aiResult.powerPlay.combined}</div>}
+                {aiResult.flexPlay && <div style={S.aiPlay}><b style={{ color: C.green }}>3-Pick Flex</b> — {(aiResult.flexPlay.legs || []).join(" + ")} · {aiResult.flexPlay.combined}</div>}
+                {(aiResult.traps || []).length > 0 && <div style={S.trapNote}>⚠ Traps: {aiResult.traps.join(" · ")}</div>}
+              </div>
+            )}
+            {aiResult && aiResult.error && <button onClick={runAI} style={S.errBtn}>{aiResult.error}</button>}
+            {filtered.length === 0 && <div style={S.empty}>{apiKey ? "No props on the board yet — hit refresh, or raise prop depth in Settings." : "Open Settings and drop in your Odds API key to load today's board."}</div>}
+            {filtered.map((p) => <PropCard key={p.id} p={p} />)}
+          </React.Fragment>
+        )}
+
+        {tab === "matchups" && (
+          <React.Fragment>
+            {filteredGames.length === 0 && <div style={S.empty}>No games loaded yet.</div>}
+            {filteredGames.map((g) => <GameCard key={g.id} g={g} />)}
+          </React.Fragment>
+        )}
+
+        {tab === "parlays" && (
+          <React.Fragment>
+            <div style={S.sectionLabel}>Slip · {n} leg{n === 1 ? "" : "s"}</div>
+            {n === 0 && <div style={S.empty}>Build from the Props board — tap “Add to slip”.</div>}
+            {slip.map((p) => (
+              <div key={p.id} style={Object.assign({}, S.card, { padding: "12px 14px" })}>
+                <div style={S.slipRow}>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontWeight: 700 }}>{p.player}</span>{" "}
+                    <span style={{ color: C.green, fontWeight: 700 }}>{p.side} {p.ppLine != null ? p.ppLine : p.medLine}</span>{" "}
+                    <span style={{ color: C.mut }}>{MARKET_LABELS[p.market]}</span>
+                    <div style={S.meta}>{fmtPct(p.prob)} model prob · grade {p.grade}</div>
+                  </div>
+                  <button onClick={() => toggleSlip(p)} style={S.removeBtn}>✕</button>
+                </div>
+              </div>
+            ))}
+            {n >= 2 && (
+              <div style={Object.assign({}, S.card, mispriced ? S.cardSteal : {})}>
+                {mispriced && <div style={S.stealStripe} />}
+                {n >= 3 && (
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                    <button onClick={() => setFlexMode(false)} style={Object.assign({}, S.chip, !flexMode ? S.chipOn : {})}>Power</button>
+                    <button onClick={() => setFlexMode(true)} style={Object.assign({}, S.chip, flexMode ? S.chipOn : {})}>Flex</button>
+                  </div>
+                )}
+                <div style={S.grid4}>
+                  <div><div style={S.kVal}>{fmtPct(combinedProb)}</div><div style={S.kKey}>Hit prob</div></div>
+                  <div><div style={S.kVal}>{payout}×</div><div style={S.kKey}>PP payout</div></div>
+                  <div><div style={S.kVal}>{fairPayout.toFixed(2)}×</div><div style={S.kKey}>Fair payout</div></div>
+                  <div><div style={Object.assign({}, S.kVal, { color: ev > 0 ? C.green : C.red })}>{ev > 0 ? "+" : ""}{(ev * 100).toFixed(1)}%</div><div style={S.kKey}>Expected value</div></div>
+                </div>
+                {mispriced ? (
+                  <div style={S.stealBanner}>
+                    Mispriced — PrizePicks pays {payout}× where fair odds are {fairPayout.toFixed(2)}×. You're getting {((payout / fairPayout - 1) * 100).toFixed(0)}% over fair value on this build.
+                  </div>
+                ) : ev <= 0 ? <div style={S.warnBanner}>Negative EV as built. Swap the weakest leg for a grade-A play.</div> : null}
+                <button onClick={shareSlip} style={Object.assign({}, S.primaryBtn, { marginTop: 12, marginBottom: 0 })}>Share slip with the crew</button>
+              </div>
+            )}
+          </React.Fragment>
+        )}
+
+        {tab === "crew" && (
+          <React.Fragment>
+            <div style={S.sectionLabel}>Shared slips</div>
+            {shareHistory.length === 0 && <div style={S.empty}>Nothing shared yet. Build a slip and hit “Share slip with the crew” — it opens your share sheet straight into the group chat.</div>}
+            {shareHistory.map((s, i) => (
+              <div key={i} style={S.card}>
+                <div style={Object.assign({}, S.meta, { marginBottom: 8 })}>{s.at}</div>
+                <div style={{ fontSize: 12, color: C.text, whiteSpace: "pre-wrap", lineHeight: 1.6, fontFamily: "ui-monospace, Menlo, monospace" }}>{s.text}</div>
+              </div>
+            ))}
+          </React.Fragment>
+        )}
+
+        {tab === "locks" && (
+          <React.Fragment>
+            <div style={S.sectionLabel}>Steal feed</div>
+            <button onClick={askNotif} style={S.ghostBtn}>Enable push alerts</button>
+            {locks.length === 0 && <div style={S.empty}>Nothing above the +{fmtPct(stealThresh)} edge threshold yet.</div>}
+            {locks.map((l, i) => (
+              <div key={i} style={Object.assign({}, S.card, S.cardSteal)}>
+                <div style={S.stealStripe} />
+                <div style={S.slipRow}>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontWeight: 700 }}>{l.player}</span>{" "}
+                    <span style={{ color: C.green, fontWeight: 700 }}>{l.side} {l.ppLine != null ? l.ppLine : l.medLine}</span>{" "}
+                    <span style={{ color: C.mut }}>{MARKET_LABELS[l.market]}</span>
+                    <div style={S.meta}>{l.event} · {fmtPct(l.prob)} prob · +{fmtPct(l.edge)} edge · flagged {l.at}</div>
+                  </div>
+                  <button onClick={() => toggleSlip(l)} style={Object.assign({}, S.addBtn, inSlip(l.id) ? S.addBtnOn : {})}>{inSlip(l.id) ? "✓" : "+"}</button>
+                </div>
+                <Reasoning p={l} forceOpen />
+              </div>
+            ))}
+            <div style={S.disclaimer}>Edges are model estimates against market consensus, not guarantees. Bet responsibly.</div>
+          </React.Fragment>
+        )}
+
+        {tab === "settings" && (
+          <React.Fragment>
+            <div style={S.sectionLabel}>Profile</div>
+            <input style={S.input} value={handle} maxLength={16}
+              onChange={(e) => setHandle(e.target.value.replace(/\s/g, ""))}
+              onBlur={() => { if (handle) { saveSettings({ handle }); showToast("Handle saved"); } }} />
+
+            <div style={S.sectionLabel}>The Odds API — live odds</div>
+            <input style={S.input} type="password" placeholder="Odds API key — the-odds-api.com" value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              onBlur={() => { if (apiKey) { saveSettings({ apiKey }); showToast("API key saved"); } }} />
+            <button onClick={() => { saveSettings({ apiKey }); fetchLive(); setTab("props"); }} disabled={!apiKey}
+              style={Object.assign({}, S.primaryBtn, { margin: "0 0 8px", opacity: apiKey ? 1 : 0.4 })}>Load today's board</button>
+
+            <div style={S.sectionLabel}>Anthropic API — AI breakdowns (optional)</div>
+            <input style={S.input} type="password" placeholder="Anthropic key — console.anthropic.com" value={anthropicKey}
+              onChange={(e) => setAnthropicKey(e.target.value)}
+              onBlur={() => { if (anthropicKey) { saveSettings({ anthropicKey }); showToast("Anthropic key saved"); } }} />
+
+            <div style={S.sectionLabel}>Sports</div>
+            <div style={S.row}>
+              <button onClick={() => { setAutoSports(!autoSports); saveSettings({ autoSports: !autoSports }); }}
+                style={Object.assign({}, S.chip, autoSports ? S.chipOn : {})}>Auto — everything in season</button>
+            </div>
+            {!autoSports && (
+              <div style={S.row}>
+                {SPORTS.map((s) => (
+                  <button key={s.key}
+                    onClick={() => { const next = activeSports.includes(s.key) ? activeSports.filter((k) => k !== s.key) : [...activeSports, s.key]; setActiveSports(next); saveSettings({ activeSports: next }); }}
+                    style={Object.assign({}, S.chip, activeSports.includes(s.key) ? S.chipOn : {})}>{s.short}</button>
+                ))}
+              </div>
+            )}
+
+            <div style={S.sectionLabel}>Auto refresh</div>
+            <div style={S.row}>
+              <button onClick={() => setAutoRefresh(!autoRefresh)} style={Object.assign({}, S.chip, autoRefresh ? S.chipOn : {})}>{autoRefresh ? "On" : "Off"}</button>
+              {[60, 120, 300].map((s) => (
+                <button key={s} onClick={() => { setRefreshSec(s); saveSettings({ refreshSec: s }); }} style={Object.assign({}, S.chip, refreshSec === s ? S.chipOn : {})}>{s / 60} min</button>
+              ))}
+            </div>
+
+            <div style={S.sectionLabel}>Steal threshold — edge over 57.7% breakeven</div>
+            <div style={S.row}>
+              {[0.02, 0.03, 0.05, 0.08].map((t) => (
+                <button key={t} onClick={() => { setStealThresh(t); saveSettings({ stealThresh: t }); }} style={Object.assign({}, S.chip, stealThresh === t ? S.chipOn : {})}>+{(t * 100).toFixed(0)}%</button>
+              ))}
+            </div>
+
+            <div style={S.sectionLabel}>Prop depth — events per sport</div>
+            <div style={S.row}>
+              {[2, 3, 5, 8, 99].map((v) => (
+                <button key={v} onClick={() => { setEventsPerSport(v); saveSettings({ eventsPerSport: v }); }} style={Object.assign({}, S.chip, eventsPerSport === v ? S.chipOn : {})}>{v === 99 ? "All today" : v}</button>
+              ))}
+            </div>
+            <div style={S.disclaimer}>
+              Everything saves automatically on this device — keys, handle, settings. World Cup, MLB, MLS, WNBA, MMA and every other in-season league load in Auto mode.
+              Prop calls cost quota per event — "All today" during the World Cup burns fast on a free key.
+              To install: Safari share button → Add to Home Screen.
+            </div>
+          </React.Fragment>
+        )}
+      </div>
+
+      <div style={S.nav}>
+        {[["props", "Props"], ["matchups", "Games"], ["parlays", n ? `Slip · ${n}` : "Slip"], ["crew", "Crew"], ["locks", "Locks"]].map(([k, label]) => (
+          <button key={k} onClick={() => { setTab(k); if (k === "locks") setUnseen(0); }}
+            style={Object.assign({}, S.navBtn, { color: tab === k ? C.white : C.dim })}>
+            <span style={Object.assign({}, S.navIndicator, { opacity: tab === k ? 1 : 0 })} />
+            {label}
+            {k === "locks" && unseen > 0 && <span style={S.badge}>{unseen}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ styles ============================ */
+const sans = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif";
+const monoF = "ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace";
+
+const styles = {
+  app: { background: C.bg, color: C.text, minHeight: "100vh", fontFamily: sans, maxWidth: 480, margin: "0 auto", paddingBottom: 96, WebkitFontSmoothing: "antialiased" },
+  toast: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 14px)", left: "50%", transform: "translateX(-50%)", background: C.card, border: `1px solid ${C.border}`, color: C.text, fontSize: 12, fontWeight: 600, padding: "10px 18px", borderRadius: 10, zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,.5)", whiteSpace: "nowrap" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "calc(env(safe-area-inset-top, 0px) + 18px) 18px 8px" },
+  logo: { fontSize: 21, fontWeight: 900, letterSpacing: 2.5, fontFamily: monoF, color: C.white },
+  tagline: { fontSize: 9.5, color: C.dim, letterSpacing: 1.2, textTransform: "uppercase", marginTop: 3, fontFamily: monoF },
+  headerRight: { display: "flex", gap: 8, alignItems: "center" },
+  quota: { textAlign: "right", fontFamily: monoF, fontSize: 13, fontWeight: 700, color: C.text, marginRight: 4 },
+  quotaKey: { fontSize: 8, color: C.dim, letterSpacing: 1, textTransform: "uppercase", fontWeight: 400 },
+  iconBtn: { background: C.card, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, width: 38, height: 38, fontSize: 15, cursor: "pointer" },
+  statusBar: { padding: "0 18px 10px", fontSize: 10.5, color: C.mut, display: "flex", alignItems: "center", gap: 7, fontFamily: monoF, flexWrap: "wrap" },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  stealCount: { background: C.greenDim, color: C.green, border: `1px solid ${C.greenBorder}`, fontSize: 9, fontWeight: 800, padding: "2px 9px", borderRadius: 10, letterSpacing: 0.5 },
+  filterRow: { display: "flex", gap: 6, padding: "2px 18px 10px", flexWrap: "wrap" },
+  chip: { background: C.card, border: `1px solid ${C.border}`, color: C.mut, borderRadius: 20, padding: "6px 13px", fontSize: 11, fontFamily: sans, fontWeight: 600, cursor: "pointer" },
+  chipOn: { background: C.text, color: C.bg, borderColor: C.text },
+  body: { padding: "2px 14px" },
+  card: { background: C.card, border: `1px solid ${C.borderSoft}`, borderRadius: 14, padding: 16, marginBottom: 12, position: "relative", overflow: "hidden" },
+  cardSteal: { borderColor: C.greenBorder, background: "#111A16" },
+  stealStripe: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: C.green },
+  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
+  playerRow: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  player: { fontSize: 15.5, fontWeight: 700, color: C.white, letterSpacing: -0.2 },
+  gradePill: { fontSize: 10, fontWeight: 800, fontFamily: monoF, border: "1px solid", borderRadius: 5, padding: "1px 7px" },
+  stealBadge: { background: C.greenDim, color: C.green, border: `1px solid ${C.greenBorder}`, fontSize: 8.5, fontWeight: 800, padding: "3px 8px", borderRadius: 5, letterSpacing: 1.2, fontFamily: monoF },
+  meta: { fontSize: 10.5, color: C.dim, marginTop: 4, fontFamily: monoF },
+  addBtn: { background: "transparent", border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "8px 12px", fontSize: 11, fontWeight: 700, fontFamily: sans, cursor: "pointer", whiteSpace: "nowrap" },
+  addBtnOn: { background: C.green, borderColor: C.green, color: "#04140C" },
+  pickRow: { display: "flex", alignItems: "center", gap: 10, margin: "14px 0 8px" },
+  sideTag: { fontSize: 10, fontWeight: 800, fontFamily: monoF, letterSpacing: 1.5, padding: "4px 9px", borderRadius: 6, border: "1px solid" },
+  bigNum: { fontSize: 28, fontWeight: 800, color: C.white, fontFamily: monoF, letterSpacing: -1 },
+  statName: { fontSize: 12, color: C.mut, fontWeight: 600 },
+  barTrack: { height: 4, background: "#1B222C", borderRadius: 2, position: "relative", margin: "2px 0 14px" },
+  barFill: { height: "100%", borderRadius: 2, transition: "width .4s ease" },
+  barTick: { position: "absolute", left: "57.7%", top: -3, bottom: -3, width: 1, background: "#4a5563" },
+  grid4: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 },
+  kVal: { fontSize: 14, fontWeight: 800, color: C.text, fontFamily: monoF },
+  kKey: { fontSize: 8.5, color: C.dim, letterSpacing: 0.8, textTransform: "uppercase", marginTop: 2 },
+  whyToggle: { background: "transparent", border: "none", color: C.mut, fontSize: 10.5, fontFamily: monoF, letterSpacing: 0.5, cursor: "pointer", padding: "2px 0", textTransform: "uppercase" },
+  whyBody: { background: C.cardAlt, border: `1px solid ${C.borderSoft}`, borderRadius: 10, padding: "12px 12px 6px", marginTop: 8 },
+  reasonRow: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 },
+  reasonTag: { fontSize: 8, fontWeight: 800, fontFamily: monoF, letterSpacing: 1, border: "1px solid", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap", marginTop: 1 },
+  reasonText: { fontSize: 11.5, color: "#AEB7C2", lineHeight: 1.55 },
+  bookRow: { display: "flex", gap: 6, flexWrap: "wrap" },
+  bookChip: { fontSize: 9.5, background: C.cardAlt, border: `1px solid ${C.borderSoft}`, color: C.mut, padding: "4px 9px", borderRadius: 6, fontFamily: monoF },
+  bookChipDFS: { borderColor: C.greenBorder, color: C.green, background: "#0F1813" },
+  liveBadge: { display: "inline-flex", alignItems: "center", gap: 5, background: "#241318", border: "1px solid #4a2029", color: C.red, fontSize: 8.5, fontWeight: 800, fontFamily: monoF, letterSpacing: 1.2, padding: "3px 8px", borderRadius: 5, marginTop: 4 },
+  liveDot: { width: 5, height: 5, borderRadius: 3, background: C.red },
+  matchRow: { display: "flex", alignItems: "center", margin: "12px 0" },
+  team: { fontSize: 13.5, fontWeight: 700, color: C.white },
+  ml: { fontSize: 14, fontWeight: 800, color: C.green, marginTop: 4, fontFamily: monoF },
+  mlBook: { fontSize: 9, color: C.dim, fontWeight: 400 },
+  probSm: { fontSize: 10, color: C.mut, marginTop: 3, fontFamily: monoF },
+  vs: { color: C.dim, padding: "0 14px", fontSize: 12, fontFamily: monoF },
+  sectionLabel: { fontSize: 10, letterSpacing: 2, color: C.mut, margin: "16px 4px 10px", fontWeight: 700, textTransform: "uppercase", fontFamily: monoF },
+  empty: { color: C.dim, fontSize: 12.5, padding: "28px 12px", textAlign: "center", lineHeight: 1.6 },
+  slipRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 13 },
+  removeBtn: { background: "transparent", border: `1px solid ${C.border}`, color: C.mut, borderRadius: 8, width: 30, height: 30, cursor: "pointer", flexShrink: 0 },
+  stealBanner: { background: C.greenDim, border: `1px solid ${C.greenBorder}`, color: "#CFF5E3", fontSize: 12, fontWeight: 500, padding: "12px 14px", borderRadius: 10, marginTop: 6, lineHeight: 1.55 },
+  warnBanner: { background: C.cardAlt, border: `1px solid ${C.border}`, color: C.mut, fontSize: 11.5, padding: "11px 13px", borderRadius: 10, marginTop: 6, lineHeight: 1.5 },
+  primaryBtn: { width: "100%", background: C.green, color: "#04140C", border: "none", borderRadius: 12, padding: "14px", fontSize: 13, fontWeight: 800, fontFamily: sans, cursor: "pointer", margin: "10px 0 12px", letterSpacing: 0.2, boxSizing: "border-box" },
+  aiPick: { fontSize: 13, fontWeight: 700, color: C.white, display: "flex", alignItems: "center", gap: 9 },
+  aiRank: { background: C.cardAlt, border: `1px solid ${C.borderSoft}`, color: C.mut, fontSize: 10, fontFamily: monoF, fontWeight: 800, width: 20, height: 20, borderRadius: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  aiWhy: { fontSize: 11.5, color: C.mut, marginTop: 5, lineHeight: 1.55, paddingLeft: 29 },
+  aiPlay: { fontSize: 12, color: C.text, background: C.cardAlt, padding: "11px 13px", borderRadius: 10, marginTop: 8, border: `1px solid ${C.borderSoft}`, lineHeight: 1.5 },
+  trapNote: { fontSize: 11, color: C.amber, marginTop: 12, lineHeight: 1.5 },
+  errBtn: { width: "100%", background: "transparent", border: "1px solid #4a2029", color: C.red, fontSize: 11.5, padding: "12px", borderRadius: 10, cursor: "pointer", fontFamily: sans, marginBottom: 10, boxSizing: "border-box" },
+  ghostBtn: { background: C.card, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 16px", fontSize: 11, fontWeight: 700, fontFamily: sans, cursor: "pointer", marginBottom: 12 },
+  input: { width: "100%", boxSizing: "border-box", background: C.cardAlt, border: `1px solid ${C.border}`, color: C.text, borderRadius: 11, padding: "14px", fontSize: 13.5, fontFamily: monoF, marginBottom: 10, outline: "none" },
+  row: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 },
+  disclaimer: { fontSize: 9.5, color: C.dim, padding: "14px 6px", lineHeight: 1.6 },
+  nav: { position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto", display: "flex", background: "rgba(11,14,19,.96)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderTop: `1px solid ${C.borderSoft}`, zIndex: 10, paddingBottom: "env(safe-area-inset-bottom, 0px)" },
+  navBtn: { flex: 1, background: "transparent", border: "none", padding: "14px 0 16px", fontSize: 10.5, fontWeight: 700, fontFamily: sans, cursor: "pointer", position: "relative", letterSpacing: 0.3 },
+  navIndicator: { position: "absolute", top: 0, left: "30%", right: "30%", height: 2, background: C.green, borderRadius: 1, transition: "opacity .2s" },
+  badge: { position: "absolute", top: 7, right: "20%", background: C.green, color: "#04140C", fontSize: 8.5, borderRadius: 9, padding: "2px 6px", fontWeight: 900, fontFamily: monoF },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
