@@ -79,6 +79,48 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Wardrobe")
 	TArray<FName> ClothingColorParameters;
 
+	// ------------------------------------------------------------------ driving (player car; tweak while playing)
+	/** Extra tire grip for every car. 1 = the car Blueprint's own grip. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0.2", ClampMax = "4"))
+	float TireGrip = 1.5f;
+
+	/** Arcade help that stops the player's car sliding sideways. 0 = pure physics, 1 = on rails. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0", ClampMax = "1"))
+	float GripAssist = 0.7f;
+
+	/** Grip Assist while holding the handbrake, so you can still drift. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0", ClampMax = "1"))
+	float HandbrakeGripAssist = 0.05f;
+
+	/** Stops the car spinning out once you let go of the steering. 0 = off. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0", ClampMax = "1"))
+	float SpinAssist = 0.5f;
+
+	/** How fast the wheels turn toward full lock when you press A/D (full lock in 1/this seconds). */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0.5", ClampMax = "20"))
+	float SteerSpeed = 3.f;
+
+	/** How fast the wheels straighten when you let go. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0.5", ClampMax = "20"))
+	float SteerReturnSpeed = 5.f;
+
+	/** Share of steering left at High Speed MPH and above (less twitchy on the highway). */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0.1", ClampMax = "1"))
+	float HighSpeedSteering = 0.55f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "20", ClampMax = "200"))
+	float HighSpeedMPH = 80.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "200", ClampMax = "2000"))
+	float CameraDistance = 700.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "0", ClampMax = "600"))
+	float CameraHeight = 120.f;
+
+	/** How quickly the camera swings round behind the car. Higher = tighter. */
+	UPROPERTY(Config, EditAnywhere, Category = "Driving", meta = (ClampMin = "1", ClampMax = "30"))
+	float CameraFollowSpeed = 6.f;
+
 	// ------------------------------------------------------------------ world
 	UPROPERTY(Config, EditAnywhere, Category = "World", meta = (ClampMin = "0", ClampMax = "60"))
 	int32 TrafficCars = 16;

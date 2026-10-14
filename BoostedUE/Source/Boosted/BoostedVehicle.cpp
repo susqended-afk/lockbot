@@ -331,10 +331,12 @@ void ABoostedVehicle::ApplyUpgrades(const FCarUpgrades& NewUpgrades)
 			const FBoostedCarModel* Model = UBoostedSettings::Get()->FindCar(ModelId);
 			const float Perf = Model ? Model->PerformanceScale : 1.f;
 			const float Torque = BaseTorque * Perf * (1.f + 0.13f * Upgrades.Engine) * (Upgrades.Blower > 0 ? 1.18f : 1.f);
+			const float TireGrip = UBoostedSettings::Get()->TireGrip;
+			AppliedTireGrip = TireGrip;
 			M->SetMaxEngineTorque(Torque);
 			for (int32 i = 0; i < BaseFriction.Num(); ++i)
 			{
-				M->SetWheelFrictionMultiplier(i, BaseFriction[i] * (1.f + 0.1f * Upgrades.Tires + 0.04f * Upgrades.Suspension));
+				M->SetWheelFrictionMultiplier(i, BaseFriction[i] * TireGrip * (1.f + 0.1f * Upgrades.Tires + 0.04f * Upgrades.Suspension));
 				M->SetWheelMaxBrakeTorque(i, BaseBrake[i] * (1.f + 0.2f * Upgrades.Brakes));
 			}
 		}
@@ -394,15 +396,13 @@ void ABoostedVehicle::OnBrake(const FInputActionValue& Value)
 
 void ABoostedVehicle::OnSteer(const FInputActionValue& Value)
 {
-	InputSteer = Value.Get<float>();
-	if (UChaosWheeledVehicleMovementComponent* M = GetChaos())
-	{
-		M->SetSteeringInput(InputSteer);
-	}
+	// applied gradually in TickPlayerHandling
+	TargetSteer = Value.Get<float>();
 }
 
 void ABoostedVehicle::OnHandbrakeStart(const FInputActionValue& Value)
 {
+	bHandbrakeHeld = true;
 	if (UChaosWheeledVehicleMovementComponent* M = GetChaos())
 	{
 		M->SetHandbrakeInput(true);
@@ -411,6 +411,7 @@ void ABoostedVehicle::OnHandbrakeStart(const FInputActionValue& Value)
 
 void ABoostedVehicle::OnHandbrakeStop(const FInputActionValue& Value)
 {
+	bHandbrakeHeld = false;
 	if (UChaosWheeledVehicleMovementComponent* M = GetChaos())
 	{
 		M->SetHandbrakeInput(false);
@@ -479,6 +480,9 @@ void ABoostedVehicle::SetParked(bool bParked)
 		M->SetHandbrakeInput(bParked);
 	}
 	InputThrottle = 0.f;
+	InputSteer = 0.f;
+	TargetSteer = 0.f;
+	bHandbrakeHeld = false;
 	bNitroHeld = false;
 }
 
@@ -515,12 +519,64 @@ bool ABoostedVehicle::HasAIDriver() const
 
 // ---------------------------------------------------------------------- per frame
 
+void ABoostedVehicle::TickPlayerHandling(float DeltaSeconds)
+{
+	UChaosWheeledVehicleMovementComponent* M = GetChaos();
+	USkeletalMeshComponent* Body = GetMesh();
+	if (!M || !Body)
+	{
+		return;
+	}
+	const UBoostedSettings* S = UBoostedSettings::Get();
+	// Tire Grip changed in Project Settings while playing
+	if (M->Wheels.Num() > 0 && !FMath::IsNearlyEqual(AppliedTireGrip, S->TireGrip))
+	{
+		ApplyUpgrades(Upgrades);
+	}
+
+	// steering eases toward the keys, straightens (or swings across) faster than it turns in, softens with speed
+	const bool bTurningIn = FMath::Abs(TargetSteer) > FMath::Abs(InputSteer) && TargetSteer * InputSteer >= 0.f;
+	InputSteer = FMath::FInterpConstantTo(InputSteer, TargetSteer, DeltaSeconds, bTurningIn ? S->SteerSpeed : S->SteerReturnSpeed);
+	const float SpeedAlpha = FMath::Clamp(GetSpeedMPH() / FMath::Max(1.f, S->HighSpeedMPH), 0.f, 1.f);
+	M->SetSteeringInput(InputSteer * FMath::Lerp(1.f, S->HighSpeedSteering, SpeedAlpha));
+
+	// assists only work with wheels on the road
+	int32 Grounded = 0;
+	for (const UChaosVehicleWheel* Wheel : M->Wheels)
+	{
+		Grounded += (Wheel && !Wheel->IsInAir()) ? 1 : 0;
+	}
+	const float GroundShare = M->Wheels.Num() > 0 ? float(Grounded) / M->Wheels.Num() : 0.f;
+	if (GroundShare <= 0.f || IsWrecked())
+	{
+		return;
+	}
+
+	// grip: cancel part of the sideways slide every frame (an acceleration, so it suits any car's mass)
+	const FVector Right = GetActorRightVector();
+	const float SideSpeed = FVector::DotProduct(Body->GetPhysicsLinearVelocity(), Right);
+	const float Grip = bHandbrakeHeld ? S->HandbrakeGripAssist : S->GripAssist;
+	Body->AddForce(-Right * SideSpeed * Grip * 6.f * GroundShare, NAME_None, true);
+
+	// spin: once you let go of the steering, damp the rotation so the car straightens instead of spinning out
+	if (!bHandbrakeHeld && FMath::Abs(InputSteer) < 0.15f)
+	{
+		const FVector Up = GetActorUpVector();
+		const float YawRate = FVector::DotProduct(Body->GetPhysicsAngularVelocityInDegrees(), Up);
+		Body->AddTorqueInDegrees(-Up * YawRate * S->SpinAssist * 5.f * GroundShare, NAME_None, true);
+	}
+}
+
 void ABoostedVehicle::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
 	// nitrous: straight forward push while held
 	const bool bPlayer = VehicleRole == EVehicleRole::Player;
+	if (bPlayer && IsPlayerControlled())
+	{
+		TickPlayerHandling(DeltaSeconds);
+	}
 	bNitroActive = bPlayer && bNitroHeld && Upgrades.Nitro > 0 && NitroFuel > 0.f && !IsWrecked() && GetForwardSpeedMS() > -1.f;
 	if (bNitroActive)
 	{
@@ -537,6 +593,13 @@ void ABoostedVehicle::Tick(float DeltaSeconds)
 	if (LookIdle > 1.5f)
 	{
 		LookOffset = FMath::RInterpTo(LookOffset, FRotator::ZeroRotator, DeltaSeconds, 2.5f);
+	}
+	if (bPlayer)
+	{
+		const UBoostedSettings* S = UBoostedSettings::Get();
+		SpringArm->TargetArmLength = S->CameraDistance;
+		SpringArm->SocketOffset.Z = S->CameraHeight;
+		SpringArm->CameraRotationLagSpeed = S->CameraFollowSpeed;
 	}
 	const bool bReversing = GetForwardSpeedMS() < -2.f && LookIdle > 1.5f;
 	SpringArm->SetRelativeRotation(FRotator(-12.f + LookOffset.Pitch, LookOffset.Yaw + (bReversing ? 180.f : 0.f), 0.f));

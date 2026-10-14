@@ -119,6 +119,8 @@ protected:
 	void OnHorn(const FInputActionValue& Value);
 
 	void CacheBaseTuning();
+	/** Player-only arcade handling: smoothed, speed-sensitive steering plus grip and spin assists. */
+	void TickPlayerHandling(float DeltaSeconds);
 	void CachePaintMaterials();
 	void ApplyPaint();
 
@@ -130,7 +132,12 @@ protected:
 	TArray<float> BaseBrake;
 
 	float InputThrottle = 0.f;
+	/** Steering actually applied (the player's is smoothed and speed-scaled). */
 	float InputSteer = 0.f;
+	/** Raw steering from the player's keys/stick. */
+	float TargetSteer = 0.f;
+	bool bHandbrakeHeld = false;
+	float AppliedTireGrip = 0.f;
 	bool bNitroHeld = false;
 	bool bNitroActive = false;
 	float AlarmTimer = 0.f;

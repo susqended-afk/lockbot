@@ -71,6 +71,9 @@ it paints the first material of a part named like *Chasis_Main* or *Body*. If th
 the name of the body material's color parameter (e.g. `Paint Color`). Then make a BoostedVehicle Blueprint as above
 and add that name under **Class Defaults → Boosted → Paint → Paint Color Parameters**.
 
+**Handling:** **Project Settings → Game → Boosted → Driving** has Tire Grip, Grip Assist (stops sliding), Spin Assist,
+steering speed, high-speed steering and the chase camera. Changes apply while you play, so keep that window open next to the game.
+
 ## 6. Make the level and press Play
 
 1. **File → New Level → Empty Level**, then **File → Save Current Level As** → `Content/Maps/SanBravo`.
