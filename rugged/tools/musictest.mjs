@@ -1,0 +1,27 @@
+import fs from 'fs'; import path from 'path'; import http from 'http';
+import { createRequire } from 'module';
+const require = createRequire('/opt/node22/lib/node_modules/');
+const { chromium } = require('playwright');
+const root = new URL('..', import.meta.url).pathname, out = process.argv[2], THREE_DIR = process.env.THREE_DIR;
+const server = http.createServer((req, res) => { const p = path.join(root, decodeURIComponent(req.url.split('?')[0].split('#')[0])); fs.readFile(p, (e, d) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'content-type': { '.html': 'text/html', '.js': 'text/javascript', '.jpg': 'image/jpeg', '.png': 'image/png' }[path.extname(p)] || 'application/octet-stream' }); res.end(d); }); }).listen(8767);
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const page = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const errors = []; page.on('pageerror', (e) => errors.push(e.message)); page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+await page.route('https://cdn.jsdelivr.net/npm/three@0.165.0/**', (r) => r.fulfill({ path: path.join(THREE_DIR, r.request().url().split('three@0.165.0/')[1]), contentType: 'application/javascript' }));
+await page.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ body: '', contentType: 'text/css' }));
+await page.route('https://fonts.gstatic.com/**', (r) => r.abort());
+await page.goto('http://localhost:8767/index.html#debug');
+await page.waitForSelector('#menu:not([hidden])', { timeout: 240000 });
+await page.click('[data-m=new]'); await page.waitForSelector('#modal:not([hidden])'); await page.click('[data-modal=go]');
+await page.waitForTimeout(1500);
+const s1 = await page.evaluate(() => { const M = window.__rug.MUSIC; return { on: M.on, idx: M.idx, el: M.elapsed(), bar: M.bar, step: M.step, ctx: M.ctx && M.ctx.state }; });
+console.log('music after start', JSON.stringify(s1));
+await page.evaluate(() => window.__rug.sitAtPC()); await page.waitForTimeout(2500);
+await page.evaluate(() => window.__rug.UI.openPC('tunes'));
+for (const i of [1, 2, 3, 4, 5]) { await page.evaluate((i) => window.__rug.MUSIC.play(i), i); await page.waitForTimeout(1200); }
+await page.evaluate(() => window.__rug.MUSIC.play(0)); await page.waitForTimeout(2500);
+await page.screenshot({ path: path.join(out, 'tunes.png') });
+const s2 = await page.evaluate(() => { const M = window.__rug.MUSIC; return { on: M.on, idx: M.idx, el: M.elapsed().toFixed(2), bar: M.bar, step: M.step, level: M.level().toFixed(3) }; });
+console.log('music later', JSON.stringify(s2));
+console.log('errors', errors.length ? errors.join('\n') : 'none');
+await b.close(); server.close();

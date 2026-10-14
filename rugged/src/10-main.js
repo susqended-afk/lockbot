@@ -4,7 +4,7 @@
 const SETTINGS_KEY = 'rugged.settings';
 const SET = (() => {
   const isMobile = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 700;
-  const d = { quality: isMobile ? 'low' : 'high', sens: 1, volume: 0.7 };
+  const d = { quality: isMobile ? 'low' : 'high', sens: 1, volume: 0.7, music: 0.45 };
   try { return { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch (e) { return d; }
 })();
 const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } };
@@ -345,12 +345,14 @@ function showSettings(back) {
   m.innerHTML = `<div class="title-wrap small"><h2>Settings</h2>
     <label class="fld">Graphics<select id="set-q"><option value="high" ${SET.quality === 'high' ? 'selected' : ''}>High (bloom, sharp shadows)</option><option value="low" ${SET.quality === 'low' ? 'selected' : ''}>Low (phones, laptops)</option></select></label>
     <label class="fld">Look sensitivity <b id="sv">${SET.sens.toFixed(1)}</b><input type="range" id="set-s" min="0.3" max="2.5" step="0.1" value="${SET.sens}"></label>
-    <label class="fld">Volume<input type="range" id="set-v" min="0" max="1" step="0.05" value="${SET.volume}"></label>
+    <label class="fld">Sound effects<input type="range" id="set-v" min="0" max="1" step="0.05" value="${SET.volume}"></label>
+    <label class="fld">Music<input type="range" id="set-m" min="0" max="1" step="0.05" value="${SET.music}"></label>
     <p class="hint">Graphics changes apply after a reload.</p>
     <div class="menu-btns"><button class="btn primary" data-m="${back}">Back</button></div></div>`;
   $('#set-q').onchange = (e) => { SET.quality = e.target.value; saveSettings(); };
   $('#set-s').oninput = (e) => { SET.sens = +e.target.value; player.sens = SET.sens; $('#sv').textContent = SET.sens.toFixed(1); saveSettings(); };
   $('#set-v').oninput = (e) => { SET.volume = +e.target.value; AUDIO.setVolume(SET.volume); saveSettings(); };
+  $('#set-m').oninput = (e) => { SET.music = +e.target.value; MUSIC.setVolume(SET.music); saveSettings(); };
 }
 function showControls(back) {
   const touch = player.isTouch;
@@ -362,6 +364,8 @@ function showControls(back) {
 function startPlaying(isNew) {
   $('#menu').hidden = true;
   AUDIO.init(); AUDIO.setVolume(SET.volume);
+  MUSIC.vol = SET.music;
+  if (!MUSIC.on && SET.music > 0) { MUSIC.play(MUSIC.idx, MUSIC.pausedAt); MUSIC.setVolume(SET.music); }
   document.body.classList.add('playing');
   WORLD.applyItems(S.owned); placeCrew();
   UI.updateObjective(); UI.updateHUD();
@@ -471,6 +475,7 @@ function loop(now) {
     p.update(dt, camera.position);
   }
   WORLD.update(dt, t, {});
+  if (WORLD.speakerMat) WORLD.speakerMat.emissiveIntensity = 0.25 + MUSIC.level() * 5;
   updateScreens(dt);
   composer.render();
 }
@@ -484,6 +489,6 @@ function loop(now) {
 
 // test hook (only with #debug in the URL)
 if (location.hash.includes('debug')) {
-  window.__rug = { get S() { return S; }, get LIVE() { return LIVE; }, get ECO() { return ECO; }, get G() { return G; }, UI, tradeBuy, devBuyMore, spawnNpcCoin, CREW, sitAtPC, leavePC, interact, launchCoin, postChirp, devSell, closeCoin, gameTick, cashOut, buyItem, trySleep, placeCrew,
+  window.__rug = { get S() { return S; }, get LIVE() { return LIVE; }, get ECO() { return ECO; }, get G() { return G; }, UI, MUSIC, tradeBuy, devBuyMore, spawnNpcCoin, CREW, sitAtPC, leavePC, interact, launchCoin, postChirp, devSell, closeCoin, gameTick, cashOut, buyItem, trySleep, placeCrew,
     player: () => player, camera: () => camera, world: () => WORLD };
 }

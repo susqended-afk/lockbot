@@ -334,6 +334,12 @@ function buildWorld(scene, Q) {
       W.cans.push(c);
     }
     // crushed can + pizza box on the floor
+    // bluetooth speaker that pulses with the music
+    const spk = group(-0.62, DESK.top, -0.26, desk);
+    rbox(0.1, 0.17, 0.1, 0.03, std({ ...T.knit, color: 0x2a2d34, roughness: 1 }), 0, 0.085, 0, spk);
+    W.speakerMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffb547, emissiveIntensity: 0.3 });
+    const ringS = mesh(new THREE.TorusGeometry(0.032, 0.004, 8, 32), W.speakerMat, 0, 0.1, 0.051, spk, false, false);
+    mesh(new THREE.CircleGeometry(0.03, 24), std({ color: 0x16181d, roughness: 0.6 }), 0, 0.1, 0.0505, spk, false, false);
     // desk lamp
     const lamp = group(0.8, DESK.top, -0.22, desk);
     cyl(0.07, 0.08, 0.02, M.black, 0, 0.01, 0, lamp);

@@ -14,6 +14,12 @@ const usdOf = (sol) => fmtUSD(sol * S.solPrice);
 const usdC = (sol) => fmtUSD(sol * S.solPrice, { compact: true });
 
 const ICONS = {
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  play: '<path d="M7 4v16l13-8z"/>',
+  pause: '<path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z"/>',
+  next: '<path d="M5 4v16l10-8z"/><path d="M18 4v16"/>',
+  prev: '<path d="M19 4v16L9 12z"/><path d="M6 4v16"/>',
+  shuffle: '<path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-6h4v6"/>',
   flame: '<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.2 1.2-3.6 2.5-4.8.3 2.3.5 3.3 1.5 3.8C11.2 9 12 6 12 3z"/>',
   chart: '<path d="M4 20h16"/><path d="M7 17V8"/><rect x="5.5" y="10" width="3" height="5" rx=".5"/><path d="M12 14V4"/><rect x="10.5" y="6" width="3" height="5" rx=".5"/><path d="M17 18v-8"/><rect x="15.5" y="11" width="3" height="5" rx=".5"/>',
@@ -75,7 +81,7 @@ const ic = (n, extra = '') => `<svg class="i ${extra}" viewBox="0 0 24 24" aria-
 const AVATAR = { Chad: ['C', '#ff8a5b', '#ffcf7a'], Kev: ['K', '#4aa8ff', '#7a6bff'], Mo: ['M', '#1fd18a', '#8af06b'], Mom: ['♥', '#ff7aa8', '#ffc0d6'] };
 const av = (name, size = 30) => { const a = AVATAR[name] || [name[0] || '?', '#5b6475', '#8a93a6']; return `<span class="av" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,${a[1]},${a[2]})">${h(a[0])}</span>`; };
 const METHOD_LABEL = { lp: 'Liquidity pull', devdump: 'Dev dump', died: 'Died', abandoned: 'Closed' };
-const NAV = [['home', 'Home', 'home'], ['trenches', 'Trenches', 'flame'], ['terminal', 'Terminal', 'chart'], ['launch', 'Launch', 'rocket'], ['chirp', 'Chirp', 'chirp'], ['radar', 'RugRadar', 'shield'], ['wallet', 'Wallet', 'wallet'], ['shop', 'Shop', 'bag'], ['messages', 'Messages', 'msg'], ['wiki', 'Wiki', 'book'], ['history', 'History', 'clock']];
+const NAV = [['home', 'Home', 'home'], ['trenches', 'Trenches', 'flame'], ['terminal', 'Terminal', 'chart'], ['launch', 'Launch', 'rocket'], ['chirp', 'Chirp', 'chirp'], ['radar', 'RugRadar', 'shield'], ['wallet', 'Wallet', 'wallet'], ['shop', 'Shop', 'bag'], ['messages', 'Messages', 'msg'], ['tunes', 'Tunes', 'music'], ['wiki', 'Wiki', 'book'], ['history', 'History', 'clock']];
 
 const UI = {
   app: 'home', pcOpen: false, phoneOpen: false, draft: null, wikiId: 'memecoin', chirpCoin: null, chirpType: 'shill',
@@ -102,6 +108,10 @@ const UI = {
     BUS.addEventListener('text', (e) => { AUDIO.sfx('notify'); this.textToast(e.detail.from, e.detail.text); if (this.pcOpen) { this.renderNav(); if (this.app === 'messages') { S.unread = 0; this.renderAppKeep(); } } });
     BUS.addEventListener('gotrugged', (e) => { AUDIO.sfx('rug'); this.toast(`The $${e.detail.coin.ticker} dev rugged. Your position lost ${fmtSOL(e.detail.lost)} SOL.`, 'bad'); });
     BUS.addEventListener('sniped', (e) => this.toast(`Sniper bot bought $${e.detail.coin.ticker} in block 0.`, ''));
+    BUS.addEventListener('music', (e) => {
+      if (e.detail.track && this.lastTrack !== e.detail.track.id) { this.lastTrack = e.detail.track.id; if (!(this.pcOpen && this.app === 'tunes')) this.toast(`Now playing: ${e.detail.track.title} · ${e.detail.track.artist}`); }
+      if (this.pcOpen && this.app === 'tunes') this.renderAppKeep(); else if (this.pcOpen) this.live(true);
+    });
     BUS.addEventListener('copycat', (e) => this.toast(`Copycat launched: "${e.detail.name}". It's stealing $${e.detail.coin.ticker}'s buyers.`, 'bad'));
   },
   newDraft() {
@@ -202,7 +212,8 @@ const UI = {
     if (!force && now - this.lastLive < 250) return;
     this.lastLive = now;
     if (this.pcOpen) {
-      $('#pc-pills').innerHTML = `<div class="pill hide-sm"><span class="lbl">SOL</span>${fmtUSD(S.solPrice)}</div><div class="pill"><span class="lbl">Bal</span>${fmtSOL(S.sol)}</div><div class="pill"><span class="lbl">Cash</span>${fmtUSD(S.cash)}</div><div class="pill hide-sm"><span class="lbl">Energy</span>${Math.round(S.stamina)}</div>`;
+      const tr = MUSIC.track;
+      $('#pc-pills').innerHTML = `<button class="pill hide-sm np-pill" data-act="music-toggle" title="${MUSIC.on ? 'Pause' : 'Play'} music">${ic(MUSIC.on ? 'pause' : 'play')}<span class="np-t">${h(tr.title)}</span></button><div class="pill hide-sm"><span class="lbl">SOL</span>${fmtUSD(S.solPrice)}</div><div class="pill"><span class="lbl">Bal</span>${fmtSOL(S.sol)}</div><div class="pill"><span class="lbl">Cash</span>${fmtUSD(S.cash)}</div><div class="pill hide-sm"><span class="lbl">Energy</span>${Math.round(S.stamina)}</div>`;
       $('#pc-clock').textContent = `Day ${S.day} · ${clockText()}`;
       const fn = this['live_' + this.app];
       if (fn) fn.call(this);
@@ -564,6 +575,50 @@ const UI = {
       <section class="panel"><div class="msgs" id="m-list">${S.texts.map((t) => `<div class="bubble">${av(t.from, 30)}<div><div class="who">${h(t.from)}</div><div class="bb">${h(t.text)}</div><div class="tm">Day ${t.day} · ${clockAt(t.time)}</div></div></div>`).join('') || '<div class="empty"><p>No messages yet.</p></div>'}</div></section>`;
   },
 
+  // ---------------- Tunes ----------------
+  app_tunes() {
+    const tr = MUSIC.track;
+    return `<div class="page-head"><div><h1>Tunes</h1><p>Beats to rug to. Generated live, so no two plays sound exactly alike.</p></div></div>
+    <div class="tunes">
+      <section class="panel np">
+        <canvas id="mu-art" width="440" height="440"></canvas>
+        <div class="np-info"><span class="lbl-sm">${MUSIC.on ? 'Now playing' : 'Paused'} · ${h(tr.genre)}</span><h2>${h(tr.title)}</h2><p>${h(tr.artist)}</p></div>
+        <div class="np-prog"><span class="num" id="mu-el">0:00</span><div class="prog"><i id="mu-bar"></i></div><span class="num">${fmtClock(MUSIC.length())}</span></div>
+        <div class="np-ctl"><button class="btn ghost ${MUSIC.shuffle ? 'on' : ''}" data-act="music-shuffle" title="Shuffle" aria-pressed="${MUSIC.shuffle}">${ic('shuffle')}</button><button class="btn" data-act="music-prev" title="Previous">${ic('prev')}</button><button class="btn primary big-play" data-act="music-toggle" title="${MUSIC.on ? 'Pause' : 'Play'}">${ic(MUSIC.on ? 'pause' : 'play')}</button><button class="btn" data-act="music-next" title="Next">${ic('next')}</button><span class="sp"></span></div>
+        <label class="np-vol">${ic('music')}<input type="range" id="mu-vol" min="0" max="1" step="0.02" value="${MUSIC.vol}" aria-label="Music volume"></label>
+        <canvas id="mu-viz" width="880" height="140"></canvas>
+      </section>
+      <section class="panel"><div class="panel-h"><h3>Basement playlist</h3><span class="dim num">${TRACKS.length} tracks</span></div>
+        <div class="rowlist">${TRACKS.map((t, i) => `<div class="row track ${i === MUSIC.idx ? 'cur' : ''}" data-act="music-play" data-i="${i}"><span class="tn num">${i === MUSIC.idx && MUSIC.on ? ic('music') : i + 1}</span><canvas data-art="${i}" width="80" height="80"></canvas><div class="nm"><b>${h(t.title)}</b><span>${h(t.artist)}</span></div><span class="badge">${h(t.genre)}</span><span class="num dim">${fmtClock(MUSIC.length(i))}</span></div>`).join('')}</div></section>
+    </div>`;
+  },
+  live_tunes() {
+    const a = document.getElementById('mu-art');
+    if (a && a.dataset.id !== MUSIC.track.id) { a.dataset.id = MUSIC.track.id; drawAlbumArt(a.getContext('2d'), MUSIC.track, a.width); }
+    document.querySelectorAll('[data-art]').forEach((c) => { if (!c.dataset.done) { c.dataset.done = 1; drawAlbumArt(c.getContext('2d'), TRACKS[+c.dataset.art], c.width); } });
+    const el = MUSIC.elapsed(), len = MUSIC.length();
+    const e = document.getElementById('mu-el'); if (e) e.textContent = fmtClock(el);
+    const b = document.getElementById('mu-bar'); if (b) b.style.width = Math.min(100, el / len * 100) + '%';
+    if (!this._viz) {
+      const loop = () => {
+        const cv = document.getElementById('mu-viz');
+        if (!cv || !this.pcOpen || this.app !== 'tunes') { this._viz = null; return; }
+        const ctx = cv.getContext('2d'), w = cv.width, hh = cv.height;
+        ctx.clearRect(0, 0, w, hh);
+        if (MUSIC.analyser) MUSIC.analyser.getByteFrequencyData(MUSIC.fft);
+        const n = 48, bw = w / n;
+        for (let i = 0; i < n; i++) {
+          const v = MUSIC.on && MUSIC.fft ? MUSIC.fft[Math.floor(i * 1.6) + 1] / 255 : 0.02;
+          const bh = Math.max(3, v * hh * 0.95);
+          const g = ctx.createLinearGradient(0, hh, 0, hh - bh); g.addColorStop(0, '#ff9a2e'); g.addColorStop(1, '#ffd27a');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(i * bw + 2, hh - bh, bw - 4, bh, 3); ctx.fill();
+        }
+        this._viz = requestAnimationFrame(loop);
+      };
+      this._viz = requestAnimationFrame(loop);
+    }
+  },
+
   // ---------------- Wiki / History ----------------
   app_wiki() {
     const a = WIKI.find((w) => w.id === this.wikiId) || WIKI[0];
@@ -603,6 +658,7 @@ const UI = {
   // ---------------- input ----------------
   onInput(e) {
     const t = e.target, d = this.draft;
+    if (t.id === 'mu-vol') { MUSIC.setVolume(+t.value); SET.music = +t.value; saveSettings(); return; }
     if (t.id === 'pc-search') { this.search = t.value; if (this.app !== 'trenches') { this.app = 'trenches'; this.renderPC(); const s = $('#pc-search'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); } else { this._sig = null; this.live(true); } return; }
     if (t.id === 'pb-name') { d.name = t.value; const p = document.getElementById('pv-name'); if (p) p.textContent = d.name || 'Unnamed coin'; return; }
     if (t.id === 'pb-ticker') { d.ticker = t.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); t.value = d.ticker; const p = document.getElementById('pv-tick'); if (p) p.textContent = `$${d.ticker || '???'} · by @${S.handle}`; return; }
@@ -688,6 +744,11 @@ const UI = {
         if (it.price >= 10000) this.confirm(`<h3>Buy ${h(it.name)}?</h3><p class="mut">${fmtUSD(it.price)}. ${h(it.desc)}</p>`, 'Buy it', go, 'primary'); else go();
         break;
       }
+      case 'music-toggle': AUDIO.init(); MUSIC.toggle(); this.live(true); if (this.app === 'tunes') this.renderAppKeep(); break;
+      case 'music-next': AUDIO.init(); MUSIC.next(); break;
+      case 'music-prev': AUDIO.init(); MUSIC.prev(); break;
+      case 'music-play': AUDIO.init(); MUSIC.pausedAt = 0; MUSIC.play(+b.dataset.i); break;
+      case 'music-shuffle': MUSIC.shuffle = !MUSIC.shuffle; this.renderAppKeep(); break;
       case 'asktip': text('Chad', pick(CHAD_TIPS())); break;
       case 'wiki': this.wikiId = b.dataset.id; this.renderApp(); break;
     }
@@ -707,6 +768,7 @@ function clockAt(m) {
   return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`;
 }
 function clockText() { return clockAt(S.clock); }
+function fmtClock(sec) { sec = Math.max(0, Math.floor(sec)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; }
 
 function drawSpark(ctx, vals, w, h, color, fill) {
   ctx.clearRect(0, 0, w, h);
