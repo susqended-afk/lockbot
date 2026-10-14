@@ -143,6 +143,7 @@ BUS.addEventListener('move', async (e) => {
   $('#fade').classList.remove('on');
   moving = false;
   chapterCard(LOCS[id].chapter);
+  UI.updateObjective(); UI.updateHUD();
   AUDIO.sfx('launch');
   setTimeout(() => {
     UI.modal(`<p class="kicker" style="font:500 12px var(--mono);color:var(--text-3);margin:0">Day ${S.day}</p><h2>Welcome to ${h(LOCS[id].name)}</h2><p>${h(LOCS[id].blurb)}</p><p class="mut">Everything you bought came with you. Rent is ${fmtUSD(HOMES[id].rent)} a day, paid when you sleep.</p>`, [['ok', 'Look around', 'primary']], () => { G.mode = 'walk'; player.lock(); });
@@ -511,7 +512,7 @@ BUS.addEventListener('ending', (e) => {
     const st = S.stats;
     const body = {
       legend: 'You burned the LP and walked away. The coin outlived the hype, and so did your name. Kids in the Trenches call clean launches "pulling a @' + S.handle + '".',
-      villain: 'You pulled the biggest rug of the cycle. You\'re rich, you\'re blocked by half the timeline, and the thread about you has four million views.',
+      villain: 'You\'re rich, you\'re blocked by half the timeline, and the thread about you has four million views.',
       influencer: 'You stopped launching and started getting paid to post. Brands DM you now. So do your old bagholders.',
       quiet: 'You closed the laptop, cashed out, and called Mom. She asked if you\'re eating vegetables. You said yes. You weren\'t.',
     }[kind];

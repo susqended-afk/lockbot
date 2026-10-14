@@ -544,7 +544,7 @@ function endGame(kind, c) {
 function epilogue(kind) {
   const st = S.stats, out = [];
   if (st.rugs === 0) out.push('You never rugged anyone. In this market that\'s close to a miracle.');
-  else if (st.rugs > st.legit) out.push(`${st.rugs} rugs against ${st.legit} clean runs. RugRadar has a whole page on you.`);
+  else if (st.rugs > st.legit) out.push(`${st.rugs} rug${st.rugs > 1 ? 's' : ''} against ${st.legit} clean run${st.legit === 1 ? '' : 's'}. RugRadar has a whole page on you.`);
   else out.push(`${st.legit} clean runs, ${st.rugs} rug${st.rugs > 1 ? 's' : ''}. Mostly a builder. Mostly.`);
   if (st.victims) out.push(`${fmtNum(st.victims)} bagholders lost ${fmtUSD(st.victimLossSol * S.solPrice, { compact: true })} on your coins.`);
   const sam = S.rivals.samurai, ben = S.rivals.ben, flex = S.rivals.flex;
