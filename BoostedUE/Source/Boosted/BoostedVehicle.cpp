@@ -1,4 +1,5 @@
 #include "BoostedVehicle.h"
+#include "BoostedParts.h"
 #include "BoostedCharacter.h"
 #include "BoostedGameMode.h"
 #include "BoostedGameInstance.h"
@@ -11,9 +12,6 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Engine/SCS_Node.h"
-#include "Engine/SimpleConstructionScript.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
@@ -24,67 +22,6 @@
 
 namespace
 {
-	/**
-	 * Recreates the parts a vehicle Blueprint adds in its Components panel (body panels, glass, wheel meshes,
-	 * headlights...) on another vehicle, attached to the same bones. Its own cameras are skipped.
-	 */
-	void CopyBlueprintParts(ABoostedVehicle* To, UClass* Source)
-	{
-		UBlueprintGeneratedClass* Actual = Cast<UBlueprintGeneratedClass>(Source);
-		// base Blueprint first, so parent parts exist before the parts attached to them
-		TArray<UBlueprintGeneratedClass*> Chain;
-		for (UClass* C = Source; C; C = C->GetSuperClass())
-		{
-			if (UBlueprintGeneratedClass* BP = Cast<UBlueprintGeneratedClass>(C))
-			{
-				Chain.Insert(BP, 0);
-			}
-		}
-		TMap<FName, USceneComponent*> Made;
-		TFunction<void(USCS_Node*, USceneComponent*)> AddPart;
-		AddPart = [&](USCS_Node* Node, USceneComponent* Parent)
-		{
-			// a child Blueprint can override a parent's part; this returns the version Source actually uses
-			USceneComponent* Template = Node ? Cast<USceneComponent>(Node->GetActualComponentTemplate(Actual)) : nullptr;
-			if (!Template || Template->IsA<UCameraComponent>() || Template->IsA<USpringArmComponent>())
-			{
-				return;
-			}
-			USceneComponent* Part = Cast<USceneComponent>(To->CreateComponentFromTemplate(Template, Node->GetVariableName()));
-			if (!Part)
-			{
-				return;
-			}
-			Part->SetupAttachment(Parent, Node->AttachToName);
-			// looks only: the skeletal mesh's physics body is the car's collision
-			if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Part))
-			{
-				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			}
-			Part->CreationMethod = EComponentCreationMethod::Instance;
-			To->AddInstanceComponent(Part);
-			Part->RegisterComponent();
-			Made.Add(Node->GetVariableName(), Part);
-			for (USCS_Node* Child : Node->GetChildNodes())
-			{
-				AddPart(Child, Part);
-			}
-		};
-		for (UBlueprintGeneratedClass* BP : Chain)
-		{
-			if (!BP->SimpleConstructionScript)
-			{
-				continue;
-			}
-			for (USCS_Node* Root : BP->SimpleConstructionScript->GetRootNodes())
-			{
-				// parts on the inherited vehicle mesh go on ours (it's the root on both)
-				USceneComponent* const* Parent = Made.Find(Root->ParentComponentOrVariableName);
-				AddPart(Root, Parent ? *Parent : To->GetRootComponent());
-			}
-		}
-	}
-
 	bool IsHiddenInGame(const USceneComponent* Comp)
 	{
 		const FBoolProperty* Prop = FindFProperty<FBoolProperty>(USceneComponent::StaticClass(), TEXT("bHiddenInGame"));
@@ -212,7 +149,7 @@ void ABoostedVehicle::CopyBodyFrom(TSubclassOf<AWheeledVehiclePawn> Source)
 	{
 		Body->SetAnimInstanceClass(FromBody->AnimClass);
 	}
-	CopyBlueprintParts(this, Source);
+	BoostedParts::CopyBlueprintParts(this, Source, Body);
 
 	// 3. components were registered while the car still had no mesh, so the physics body and the Chaos vehicle
 	// were never built; build them now (mesh first, the vehicle sim needs its bodies)

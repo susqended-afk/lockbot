@@ -41,13 +41,23 @@ public:
 	TArray<FPaintOption> Paints;
 
 	// ------------------------------------------------------------------ characters
-	/** Playable bodies shown in the character creator (MetaHuman Blueprints reparented to BoostedCharacter). */
+	/**
+	 * Playable bodies shown in the character creator: MetaHuman Blueprints (BP_Name) or character Blueprints.
+	 * Leave empty to use every MetaHuman in the MetaHumans Folder automatically.
+	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Characters")
 	TArray<FBoostedBodyPreset> Bodies;
 
-	/** Characters used for people walking the streets and drivers you pull out of cars. */
+	/** Where assembled MetaHumans land (each in its own folder as BP_Name). */
 	UPROPERTY(Config, EditAnywhere, Category = "Characters")
-	TArray<TSoftClassPtr<ABoostedCharacter>> PedestrianClasses;
+	FString MetaHumansFolder = TEXT("/Game/MetaHumans");
+
+	/**
+	 * People walking the streets and drivers you pull out of cars (MetaHuman or character Blueprints).
+	 * Leave empty to use the playable bodies, or the mannequin if there are none.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Characters")
+	TArray<TSoftClassPtr<AActor>> PedestrianClasses;
 
 	/** Used when a character has no mesh set (the UE5 Third Person template mannequin). First one that exists wins. */
 	UPROPERTY(Config, EditAnywhere, Category = "Characters")
@@ -138,7 +148,13 @@ public:
 
 	// ------------------------------------------------------------------ helpers
 	const FBoostedCarModel* FindCar(FName Id) const;
+	/** Bodies, or every assembled MetaHuman found in MetaHumans Folder when Bodies is empty. */
+	TArray<FBoostedBodyPreset> GetBodies() const;
 	/** The vehicle Blueprint to spawn for a model. May not be a BoostedVehicle; see ABoostedVehicle::CopyBodyFrom. */
 	UClass* ResolveVehicleClass(FName Id) const;
 	UClass* ResolvePoliceClass() const;
+
+private:
+	mutable TArray<FBoostedBodyPreset> FoundMetaHumans;
+	mutable double LastMetaHumanScan = -1000.0;
 };

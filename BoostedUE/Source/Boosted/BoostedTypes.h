@@ -206,7 +206,11 @@ struct BOOSTED_API FBoostedBodyPreset
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body") FString Name;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body") TSoftClassPtr<ABoostedCharacter> CharacterClass;
+	/**
+	 * A MetaHuman Blueprint (BP_Name) or any character Blueprint. BoostedCharacter Blueprints spawn as they are;
+	 * anything else is worn by a BOOSTED character, animated by the mannequin's animations.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Body") TSoftClassPtr<AActor> CharacterClass;
 };
 
 /** Prices, upgrade tiers and Street Cred math. */

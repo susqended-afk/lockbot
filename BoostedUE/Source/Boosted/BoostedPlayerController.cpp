@@ -505,16 +505,18 @@ void ABoostedPlayerController::RenderCreator()
 
 	const UBoostedSettings* S = UBoostedSettings::Get();
 	const int32 Colors = S->ClothingColors.Num();
+	const TArray<FBoostedBodyPreset> Bodies = S->GetBodies();
+	const int32 NumBodies = Bodies.Num();
 	Menu->SetPage(bNewGame ? TEXT("Create Your Character") : TEXT("Wardrobe"),
-		S->Bodies.Num() ? TEXT("Pick your body and your fit.") : TEXT("Add MetaHuman bodies and outfits in Project Settings > Game > Boosted (see Docs/SETUP.md)."));
+		NumBodies ? TEXT("Pick your body and your fit.") : TEXT("Create MetaHumans to pick from here (see Docs/SETUP.md, step 7)."));
 	Menu->AddTextInput(TEXT("Street name"), EditLook.Name, [this](const FString& Text) { EditLook.Name = Text.Left(18); });
 
 	Menu->AddHeader(TEXT("Body"));
-	const FString BodyName = S->Bodies.IsValidIndex(EditLook.Body) ? S->Bodies[EditLook.Body].Name : TEXT("Default");
+	const FString BodyName = Bodies.IsValidIndex(EditLook.Body) ? Bodies[EditLook.Body].Name : TEXT("Default");
 	Menu->AddOption(TEXT("Character"), BodyName,
-		[this, S]() { Cycle(EditLook.Body, S->Bodies.Num(), -1); ApplyEditLook(true); },
-		[this, S]() { Cycle(EditLook.Body, S->Bodies.Num(), 1); ApplyEditLook(true); },
-		S->Bodies.Num() > 1);
+		[this, NumBodies]() { Cycle(EditLook.Body, NumBodies, -1); ApplyEditLook(true); },
+		[this, NumBodies]() { Cycle(EditLook.Body, NumBodies, 1); ApplyEditLook(true); },
+		NumBodies > 1);
 
 	auto Piece = [this](const TCHAR* Label, int32& Field, const TArray<FBoostedOutfitPiece>& List)
 	{

@@ -1,4 +1,5 @@
 #include "BoostedCharacter.h"
+#include "BoostedParts.h"
 #include "BoostedVehicle.h"
 #include "BoostedGameMode.h"
 #include "BoostedGameInstance.h"
@@ -109,6 +110,64 @@ void ABoostedCharacter::EnsureMesh()
 				break;
 			}
 		}
+	}
+}
+
+void ABoostedCharacter::WearAppearance(UClass* Source)
+{
+	if (!Source || AppearanceSource)
+	{
+		return;
+	}
+	AppearanceSource = Source;
+	EnsureMesh();
+	USkeletalMeshComponent* Driver = GetMesh();
+	TArray<UActorComponent*> Parts = BoostedParts::CopyBlueprintParts(this, Source, Driver);
+
+	// a character Blueprint keeps its look on its own Mesh rather than in added parts
+	const ACharacter* SourceCharacter = Cast<ACharacter>(Source->GetDefaultObject());
+	const USkeletalMeshComponent* SourceMesh = SourceCharacter ? SourceCharacter->GetMesh() : nullptr;
+	if (SourceMesh && SourceMesh->GetSkeletalMeshAsset())
+	{
+		const FName BodyName = FindObjectFast<UObject>(this, BodyComponentName)
+			? MakeUniqueObjectName(this, USkeletalMeshComponent::StaticClass(), BodyComponentName) : BodyComponentName;
+		USkeletalMeshComponent* Body = NewObject<USkeletalMeshComponent>(this, BodyName);
+		Body->SetSkeletalMeshAsset(SourceMesh->GetSkeletalMeshAsset());
+		for (int32 i = 0; i < SourceMesh->GetNumMaterials(); ++i)
+		{
+			Body->SetMaterial(i, SourceMesh->GetMaterial(i));
+		}
+		Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Body->SetupAttachment(Driver);
+		Body->CreationMethod = EComponentCreationMethod::Instance;
+		AddInstanceComponent(Body);
+		Body->RegisterComponent();
+		Parts.Add(Body);
+	}
+
+	bool bWearsSomething = false;
+	for (UActorComponent* Part : Parts)
+	{
+		USkinnedMeshComponent* Skinned = Cast<USkinnedMeshComponent>(Part);
+		if (!Skinned)
+		{
+			continue;
+		}
+		bWearsSomething = true;
+		// a MetaHuman face has its own animation Blueprint that copies the head from the body it's attached to
+		const USkeletalMeshComponent* Skeletal = Cast<USkeletalMeshComponent>(Skinned);
+		if (Skeletal && Skeletal->AnimClass && Skinned->GetName().Contains(TEXT("Face")))
+		{
+			continue;
+		}
+		// MetaHumans share the UE5 mannequin's skeleton, so body and clothes can copy its pose bone for bone
+		Skinned->SetLeaderPoseComponent(Driver);
+	}
+	if (bWearsSomething)
+	{
+		// the mannequin keeps playing the animations (and the ragdoll), unseen
+		Driver->SetVisibility(false);
+		Driver->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	}
 }
 

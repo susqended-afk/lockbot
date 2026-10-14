@@ -109,21 +109,27 @@ steering speed, high-speed steering and the chase camera. Changes apply while yo
 ## 7. Realistic hood characters (MetaHuman)
 
 This is how you get the Hood Warfare 2 level of realism. Until you do this you'll see Epic's gray mannequin.
+You only make the MetaHumans. BOOSTED picks them up automatically: no reparenting, no Blueprint editing, no retargeting.
 
 1. **Edit → Plugins**, search **MetaHuman**, enable the MetaHuman plugins, and restart the editor.
-2. Content Drawer → right-click → **MetaHuman → MetaHuman Character**. Open it to build your guy or girl:
-   face, skin tone, body shape, and hair (fades, waves, braids, locs and afros are in the groom library).
-   Add facial hair and an outfit from the Wardrobe.
-3. Click **Assemble** to produce the playable Blueprint (named like `BP_YourName`).
-4. Make it playable:
-   - Open that Blueprint → **Class Settings → Parent Class → BoostedCharacter**. Compile and save.
-   - Select the inherited **Mesh** component. Set **Skeletal Mesh** to `SKM_Manny` (from the Third Person pack) and **Anim Class** to the Third Person
-     animation Blueprint (`ABP_Unarmed` or `ABP_Manny`). Turn off **Visible**, and set **Visibility Based Anim Tick Option** to *Always Tick Pose and Refresh Bones*.
-   - Make the MetaHuman's **Body** follow that animated mannequin. Use the retargeting setup from Epic's guide:
-     search the docs for "MetaHuman Third Person template retarget" (the exact steps change between engine versions).
-5. **Project Settings → Game → Boosted → Bodies**: add an entry with a **Name** and set **Character Class** to your MetaHuman Blueprint.
-   Add several and they show up in the character creator.
-6. **Pedestrian Classes**: add MetaHumans (or the free *City Sample Crowds* characters from Fab) for people walking the streets.
+   If there's no MetaHuman plugin, install the free **MetaHuman** plugin from Fab or the Epic Games Launcher first.
+2. Content Drawer → right-click → **MetaHuman → MetaHuman Character**. Name it (that becomes the name in the character
+   creator, e.g. `Dre`), then double-click it to open MetaHuman Creator:
+   - **Face / Skin:** start from a preset that's close, then blend and sculpt. Pick the skin tone, eyes and teeth.
+   - **Hair:** fades, waves, braids, cornrows, locs and afros are in the hair library. Add a beard or goatee.
+   - **Body:** a medium-height body fits the animations best (very tall or short bodies stretch a little).
+   - **Wardrobe:** pick a fit. You can also leave it simple and use the BOOSTED wardrobe below.
+   - If it asks you to sign in with your Epic account, do. Part of the rig is built online.
+3. Click **Assemble**. If it asks for a pipeline, pick the one meant for games (**UE Optimized**, or **UE Cine** if that's
+   the only choice). The output must land in **/Game/MetaHumans** (the default), as `MetaHumans/Dre/BP_Dre`.
+4. Press **Play**. Every MetaHuman in that folder shows up in the character creator (**New Game** or **The Spot → Wardrobe**)
+   and walks the streets as pedestrians. Make 4 or 5 different people so the city doesn't look like clones.
+
+How it works: the gray mannequin still runs the animations, invisibly, and the MetaHuman's body, face, hair and clothes
+copy its pose bone for bone (MetaHumans share the mannequin's skeleton).
+
+**Optional:** to choose the list yourself, fill **Project Settings → Game → Boosted → Bodies** (Name + the `BP_` Blueprint),
+and **Pedestrian Classes** for street people. Free **City Sample Crowds** characters from Fab work there too.
 
 ### Hood fits (outfits)
 - On **Fab** (fab.com, built into the editor), search for MetaHuman-compatible clothing: *hoodie, puffer jacket, tracksuit,
@@ -132,7 +138,8 @@ This is how you get the Hood Warfare 2 level of realism. Until you do this you'l
   plus Chains (static meshes on a socket, `neck_01` by default).
 - **Clothing Colors** are the colors offered in the creator. **Clothing Color Parameters** lists the material parameter names to tint.
   Check the outfit's material and add its color parameter name if it's not already listed.
-- On a MetaHuman, BOOSTED dresses the **Torso**, **Legs** and **Feet** components. On other characters it uses its own outfit slots.
+- If a MetaHuman has **Torso**, **Legs** and **Feet** clothing parts, BOOSTED swaps those. Otherwise it layers the pieces on
+  in its own outfit slots. Leave a list empty to keep the clothes picked in MetaHuman Creator.
 
 ## 8. Realistic cars and city
 
@@ -169,7 +176,8 @@ This is how you get the Hood Warfare 2 level of realism. Until you do this you'l
 | `BoostedGameInstance` / `BoostedSaveGame` | Your profile (cash, XP, garage, look, boost list) and saving |
 | `BoostedInputConfig` | All key and gamepad bindings, created in code |
 | `BoostedVehicle` | Drivable car: input, upgrades to physics, paint, nitrous, damage, police lights, underglow |
-| `BoostedCharacter` | Third-person player and pedestrians: break-ins, carjacking, outfits, ragdoll |
+| `BoostedCharacter` | Third-person player and pedestrians: break-ins, carjacking, outfits, ragdoll, wearing MetaHumans |
+| `BoostedParts` | Copies a Blueprint's parts (car body and wheels, MetaHuman body/face/hair) onto BOOSTED actors |
 | `BoostedCity` | Generates San Bravo, the road grid, parking spots and landmarks |
 | `BoostedLocation` | Drive-in pads: garage, chop shop, exports, body shop |
 | `BoostedAI` | Traffic and police drivers, pedestrians |

@@ -55,22 +55,68 @@ void ABoostedGameMode::BeginPlay()
 	GetCity();
 }
 
-UClass* ABoostedGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+namespace
 {
-	const UBoostedSettings* S = UBoostedSettings::Get();
-	const UBoostedGameInstance* G = GetGI();
-	const int32 Body = G ? G->Look.Body : 0;
-	for (const int32 Index : { Body, 0 })
+	/** A body entry is either a BoostedCharacter Blueprint (spawned as is) or something a BoostedCharacter wears. */
+	void ResolveBody(const TSoftClassPtr<AActor>& Entry, UClass*& OutPawnClass, UClass*& OutAppearance)
 	{
-		if (S->Bodies.IsValidIndex(Index) && !S->Bodies[Index].CharacterClass.IsNull())
+		OutPawnClass = ABoostedCharacter::StaticClass();
+		OutAppearance = nullptr;
+		UClass* Cls = Entry.IsNull() ? nullptr : Entry.LoadSynchronous();
+		if (Cls && Cls->IsChildOf(ABoostedCharacter::StaticClass()))
 		{
-			if (UClass* Cls = S->Bodies[Index].CharacterClass.LoadSynchronous())
-			{
-				return Cls;
-			}
+			OutPawnClass = Cls;
+		}
+		else
+		{
+			OutAppearance = Cls;
 		}
 	}
-	return ABoostedCharacter::StaticClass();
+
+	/** The player's chosen body, falling back to the first one. */
+	const FBoostedBodyPreset* PlayerBody(const TArray<FBoostedBodyPreset>& Bodies, const UBoostedGameInstance* G)
+	{
+		const int32 Index = G ? G->Look.Body : 0;
+		if (Bodies.IsValidIndex(Index) && !Bodies[Index].CharacterClass.IsNull())
+		{
+			return &Bodies[Index];
+		}
+		return Bodies.Num() > 0 ? &Bodies[0] : nullptr;
+	}
+}
+
+UClass* ABoostedGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	const TArray<FBoostedBodyPreset> Bodies = UBoostedSettings::Get()->GetBodies();
+	UClass* PawnClass = ABoostedCharacter::StaticClass();
+	UClass* Appearance = nullptr;
+	if (const FBoostedBodyPreset* Body = PlayerBody(Bodies, GetGI()))
+	{
+		ResolveBody(Body->CharacterClass, PawnClass, Appearance);
+	}
+	return PawnClass;
+}
+
+UClass* ABoostedGameMode::GetPlayerAppearance() const
+{
+	const TArray<FBoostedBodyPreset> Bodies = UBoostedSettings::Get()->GetBodies();
+	UClass* PawnClass = nullptr;
+	UClass* Appearance = nullptr;
+	if (const FBoostedBodyPreset* Body = PlayerBody(Bodies, GetGI()))
+	{
+		ResolveBody(Body->CharacterClass, PawnClass, Appearance);
+	}
+	return Appearance;
+}
+
+APawn* ABoostedGameMode::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
+{
+	APawn* Pawn = Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, SpawnTransform);
+	if (ABoostedCharacter* Char = Cast<ABoostedCharacter>(Pawn))
+	{
+		Char->WearAppearance(GetPlayerAppearance());
+	}
+	return Pawn;
 }
 
 void ABoostedGameMode::RestartPlayer(AController* NewPlayer)
@@ -375,14 +421,20 @@ void ABoostedGameMode::SpawnTraffic(const FVector& Around, bool bPolice, bool bP
 ABoostedCharacter* ABoostedGameMode::SpawnPedestrian(const FVector& Location, const FRotator& Rotation)
 {
 	const UBoostedSettings* S = UBoostedSettings::Get();
-	UClass* Cls = ABoostedCharacter::StaticClass();
-	if (S->PedestrianClasses.Num() > 0)
+	// pedestrian list, else the playable bodies (your MetaHumans), else the mannequin
+	TArray<TSoftClassPtr<AActor>> Choices = S->PedestrianClasses;
+	if (Choices.Num() == 0)
 	{
-		const TSoftClassPtr<ABoostedCharacter>& Pick = S->PedestrianClasses[FMath::RandRange(0, S->PedestrianClasses.Num() - 1)];
-		if (UClass* Loaded = Pick.IsNull() ? nullptr : Pick.LoadSynchronous())
+		for (const FBoostedBodyPreset& Body : S->GetBodies())
 		{
-			Cls = Loaded;
+			Choices.Add(Body.CharacterClass);
 		}
+	}
+	UClass* Cls = ABoostedCharacter::StaticClass();
+	UClass* Appearance = nullptr;
+	if (Choices.Num() > 0)
+	{
+		ResolveBody(Choices[FMath::RandRange(0, Choices.Num() - 1)], Cls, Appearance);
 	}
 	FActorSpawnParameters P;
 	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -391,6 +443,7 @@ ABoostedCharacter* ABoostedGameMode::SpawnPedestrian(const FVector& Location, co
 	{
 		return nullptr;
 	}
+	Ped->WearAppearance(Appearance);
 	// cars drive into people instead of stopping dead on them (hits are handled by the ped AI)
 	Ped->GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
 	Ped->GetMesh()->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
@@ -953,13 +1006,15 @@ void ABoostedGameMode::RespawnPlayerBody()
 		return;
 	}
 	UClass* Wanted = GetDefaultPawnClassForController(P);
-	if (Wanted && Old->GetClass() != Wanted)
+	UClass* Appearance = GetPlayerAppearance();
+	if (Wanted && (Old->GetClass() != Wanted || Old->GetAppearanceSource() != Appearance))
 	{
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 		ABoostedCharacter* New = GetWorld()->SpawnActor<ABoostedCharacter>(Wanted, Old->GetActorTransform(), Params);
 		if (New)
 		{
+			New->WearAppearance(Appearance);
 			const bool bWasPossessed = P->GetPawn() == Old;
 			P->SetOnFootCharacter(New);
 			if (bWasPossessed)

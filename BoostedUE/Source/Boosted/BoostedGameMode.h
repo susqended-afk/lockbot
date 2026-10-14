@@ -25,6 +25,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual APawn* SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform) override;
 
 	// ------------------------------------------------------------------ wanted
 	UPROPERTY(BlueprintReadOnly, Category = "Boosted|Wanted") int32 WantedLevel = 0;
@@ -55,6 +56,8 @@ public:
 	void Busted();
 	/** Re-spawn the player's body after the character creator changed it. */
 	void RespawnPlayerBody();
+	/** The MetaHuman (or other non-BOOSTED Blueprint) the player's body wears, if any. */
+	UClass* GetPlayerAppearance() const;
 
 	ABoostedVehicle* SpawnCar(FName ModelId, const FTransform& Transform, EVehicleRole InRole, const FCarUpgrades* Upgrades = nullptr, float Health = 1.f);
 	ABoostedCity* GetCity();

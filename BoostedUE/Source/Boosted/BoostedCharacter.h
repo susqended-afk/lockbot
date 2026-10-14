@@ -1,5 +1,6 @@
-// Third-person character used for the player and pedestrians. Reparent a MetaHuman Blueprint to this class
-// to make it playable; the wardrobe system dresses its Torso/Legs/Feet components (or the built-in slots).
+// Third-person character used for the player and pedestrians. It can wear any MetaHuman or character Blueprint
+// (WearAppearance): the mannequin keeps playing the animations invisibly and the MetaHuman's body, face, hair and
+// clothes follow its pose. The wardrobe system dresses Torso/Legs/Feet components (or the built-in slots).
 #pragma once
 
 #include "CoreMinimal.h"
@@ -50,6 +51,12 @@ public:
 
 	// ------------------------------------------------------------------ API
 	UFUNCTION(BlueprintCallable, Category = "Boosted") void ApplyLook(const FCharacterLook& InLook);
+	/**
+	 * Wear the parts of a MetaHuman Blueprint (BP_Name) or any character Blueprint, driven by this character's
+	 * animations. Once per character: respawn the character to change body.
+	 */
+	void WearAppearance(UClass* Source);
+	UClass* GetAppearanceSource() const { return AppearanceSource; }
 	/** Hook for Blueprint-only cosmetics (hair color, tattoos...). */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boosted") void OnLookApplied(const FCharacterLook& InLook);
 	/** Play a lock-picking / window-smash montage here. */
@@ -79,6 +86,8 @@ protected:
 	USkeletalMeshComponent* GetBodyComponent() const;
 	USkeletalMeshComponent* FindSkeletalByNames(const TArray<FName>& Names) const;
 	void DressSlot(USkeletalMeshComponent* Target, const TArray<FBoostedOutfitPiece>& List, int32 Index, int32 ColorIndex);
+
+	UPROPERTY(Transient) TObjectPtr<UClass> AppearanceSource;
 
 	bool bInteractHeld = false;
 	bool bInteractPressed = false;

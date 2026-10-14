@@ -3,6 +3,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "WheeledVehiclePawn.h"
+#include "Misc/Paths.h"
 
 namespace
 {
@@ -119,6 +120,50 @@ UBoostedSettings::UBoostedSettings()
 const FBoostedCarModel* UBoostedSettings::FindCar(FName Id) const
 {
 	return Cars.FindByPredicate([Id](const FBoostedCarModel& C) { return C.Id == Id; });
+}
+
+TArray<FBoostedBodyPreset> UBoostedSettings::GetBodies() const
+{
+	if (Bodies.Num() > 0)
+	{
+		return Bodies;
+	}
+	// re-scan now and then so MetaHumans assembled while the editor is open show up
+	const double Now = FPlatformTime::Seconds();
+	if (Now - LastMetaHumanScan > 10.0)
+	{
+		LastMetaHumanScan = Now;
+		FoundMetaHumans.Reset();
+		FString Root = MetaHumansFolder;
+		Root.RemoveFromEnd(TEXT("/"));
+		IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		TArray<FAssetData> Assets;
+		Registry.GetAssetsByPath(FName(*Root), Assets, true);
+		for (const FAssetData& Asset : Assets)
+		{
+			// an assembled MetaHuman is <MetaHumans Folder>/<Name>/BP_<Name>
+			const FString Folder = Asset.PackagePath.ToString();
+			const FString Name = FPaths::GetCleanFilename(Folder);
+			const FString Type = Asset.AssetClassPath.GetAssetName().ToString();
+			if (FPaths::GetPath(Folder) != Root || Name == TEXT("Common")
+				|| (Type != TEXT("Blueprint") && Type != TEXT("BlueprintGeneratedClass")))
+			{
+				continue;
+			}
+			FString AssetName = Asset.AssetName.ToString();
+			AssetName.RemoveFromEnd(TEXT("_C"));
+			if (AssetName != TEXT("BP_") + Name)
+			{
+				continue;
+			}
+			FBoostedBodyPreset Preset;
+			Preset.Name = Name;
+			Preset.CharacterClass = TSoftClassPtr<AActor>(FSoftObjectPath(Asset.PackageName.ToString() + TEXT(".") + AssetName + TEXT("_C")));
+			FoundMetaHumans.Add(Preset);
+		}
+		FoundMetaHumans.Sort([](const FBoostedBodyPreset& A, const FBoostedBodyPreset& B) { return A.Name < B.Name; });
+	}
+	return FoundMetaHumans;
 }
 
 UClass* UBoostedSettings::ResolveVehicleClass(FName Id) const
