@@ -13,7 +13,7 @@ public class Boosted : ModuleRules
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput",
 			"ChaosVehicles", "PhysicsCore", "UMG", "Slate", "SlateCore",
-			"AIModule", "DeveloperSettings"
+			"AIModule", "DeveloperSettings", "AssetRegistry"
 		});
 	}
 }

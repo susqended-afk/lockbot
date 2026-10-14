@@ -273,10 +273,10 @@ void ABoostedGameMode::WarnNoVehicleClass()
 		return;
 	}
 	bWarnedNoVehicle = true;
-	UE_LOG(LogBoosted, Warning, TEXT("No vehicle Blueprint set. Project Settings > Game > Boosted > Default Vehicle Class."));
+	UE_LOG(LogBoosted, Warning, TEXT("No car Blueprint found. Add the Vehicle template or set Project Settings > Game > Boosted > Default Vehicle Class."));
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Orange, TEXT("BOOSTED: set Project Settings > Game > Boosted > Default Vehicle Class to your car Blueprint (see Docs/SETUP.md)"));
+		GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Orange, TEXT("BOOSTED: no car found. Add the Vehicle template (Add > Add Feature or Content Pack > Vehicle) or set Project Settings > Game > Boosted > Default Vehicle Class (see Docs/SETUP.md)"));
 	}
 }
 
@@ -284,16 +284,22 @@ ABoostedVehicle* ABoostedGameMode::SpawnCar(FName ModelId, const FTransform& Tra
 {
 	const UBoostedSettings* S = UBoostedSettings::Get();
 	const bool bPolice = InRole == EVehicleRole::Police || ModelId == TEXT("interceptor");
-	TSubclassOf<ABoostedVehicle> Cls = bPolice ? S->ResolvePoliceClass() : S->ResolveVehicleClass(ModelId);
+	UClass* Cls = bPolice ? S->ResolvePoliceClass() : S->ResolveVehicleClass(ModelId);
 	if (!Cls)
 	{
 		WarnNoVehicleClass();
 		return nullptr;
 	}
-	ABoostedVehicle* V = GetWorld()->SpawnActorDeferred<ABoostedVehicle>(Cls, Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
+	// BoostedVehicle Blueprints spawn as they are; any other vehicle Blueprint lends its body to a plain BoostedVehicle
+	const bool bBoostedClass = Cls->IsChildOf(ABoostedVehicle::StaticClass());
+	ABoostedVehicle* V = GetWorld()->SpawnActorDeferred<ABoostedVehicle>(bBoostedClass ? Cls : ABoostedVehicle::StaticClass(), Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
 	if (!V)
 	{
 		return nullptr;
+	}
+	if (!bBoostedClass)
+	{
+		V->CopyBodyFrom(Cls);
 	}
 	V->ModelId = ModelId;
 	V->VehicleRole = InRole;

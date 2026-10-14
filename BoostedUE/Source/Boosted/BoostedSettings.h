@@ -24,13 +24,17 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Cars")
 	TArray<FBoostedCarModel> Cars;
 
-	/** Vehicle Blueprint used for any model without its own Vehicle Class (make this from the Vehicle template car). */
+	/**
+	 * Vehicle Blueprint used for any model without its own Vehicle Class. Any Chaos vehicle Blueprint works:
+	 * ones reparented to BoostedVehicle spawn as they are, others lend their mesh and handling to a BOOSTED car.
+	 * Defaults to the Vehicle template's sports car.
+	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Cars")
-	TSoftClassPtr<ABoostedVehicle> DefaultVehicleClass;
+	TSoftClassPtr<AWheeledVehiclePawn> DefaultVehicleClass;
 
-	/** Vehicle Blueprint for police cruisers (falls back to Default Vehicle Class painted black and white). */
+	/** Vehicle Blueprint for police cruisers. Empty = the Vehicle template's offroad car, else the default car. */
 	UPROPERTY(Config, EditAnywhere, Category = "Cars")
-	TSoftClassPtr<ABoostedVehicle> PoliceVehicleClass;
+	TSoftClassPtr<AWheeledVehiclePawn> PoliceVehicleClass;
 
 	/** Colors sold at The Spot. Boost-list buyers ask for these by name. */
 	UPROPERTY(Config, EditAnywhere, Category = "Cars")
@@ -92,6 +96,7 @@ public:
 
 	// ------------------------------------------------------------------ helpers
 	const FBoostedCarModel* FindCar(FName Id) const;
-	TSubclassOf<ABoostedVehicle> ResolveVehicleClass(FName Id) const;
-	TSubclassOf<ABoostedVehicle> ResolvePoliceClass() const;
+	/** The vehicle Blueprint to spawn for a model. May not be a BoostedVehicle; see ABoostedVehicle::CopyBodyFrom. */
+	UClass* ResolveVehicleClass(FName Id) const;
+	UClass* ResolvePoliceClass() const;
 };

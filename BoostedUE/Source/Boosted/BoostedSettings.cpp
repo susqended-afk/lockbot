@@ -1,8 +1,41 @@
 #include "BoostedSettings.h"
 #include "BoostedVehicle.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/IAssetRegistry.h"
+#include "WheeledVehiclePawn.h"
 
 namespace
 {
+	// Folders of the UE5 Vehicle template (Add > Add Feature or Content Pack > Vehicle).
+	const TCHAR* TemplateSportsCarFolder = TEXT("/Game/VehicleTemplate/Blueprints/SportsCar");
+	const TCHAR* TemplateOffroadFolder = TEXT("/Game/VehicleTemplate/Blueprints/OffroadCar");
+
+	/** First vehicle Blueprint in a content folder, so the template cars work whatever their asset names are. */
+	UClass* FindVehicleInFolder(const TCHAR* Folder)
+	{
+		IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		TArray<FAssetData> Assets;
+		Registry.GetAssetsByPath(FName(Folder), Assets, false);
+		for (const FAssetData& Asset : Assets)
+		{
+			const FString Type = Asset.AssetClassPath.GetAssetName().ToString();
+			if ((Type != TEXT("Blueprint") && Type != TEXT("BlueprintGeneratedClass")) || Asset.AssetName.ToString().Contains(TEXT("Wheel")))
+			{
+				continue;
+			}
+			FString Path = Asset.GetObjectPathString();
+			if (!Path.EndsWith(TEXT("_C")))
+			{
+				Path += TEXT("_C");
+			}
+			if (UClass* Cls = TSoftClassPtr<AWheeledVehiclePawn>(FSoftObjectPath(Path)).LoadSynchronous())
+			{
+				return Cls;
+			}
+		}
+		return nullptr;
+	}
+
 	FLinearColor Hex(const TCHAR* InHex)
 	{
 		return FLinearColor::FromSRGBColor(FColor::FromHex(InHex));
@@ -35,6 +68,9 @@ namespace
 
 UBoostedSettings::UBoostedSettings()
 {
+	// The Vehicle template's sports car; BOOSTED borrows its mesh and handling, no reparenting needed.
+	DefaultVehicleClass = TSoftClassPtr<AWheeledVehiclePawn>(FSoftObjectPath(TEXT("/Game/VehicleTemplate/Blueprints/SportsCar/BP_VehicleAdvSportsCar.BP_VehicleAdvSportsCar_C")));
+
 	// Fictional parody models (real makes need licensing before a Steam release).
 	Cars.Add(Car(TEXT("hellhound"), TEXT("Stallion"), TEXT("Hellhound SRT"), 32000, 6.f, 1.35f, { TEXT("4A1F78"), TEXT("5CCC2E"), TEXT("FF6A13"), TEXT("0C0C0F"), TEXT("E9E9EA"), TEXT("A8101A") }));
 	Cars.Add(Car(TEXT("scatpack"), TEXT("Stallion"), TEXT("Scat Pack"), 23000, 10.f, 1.15f, { TEXT("0C0C0F"), TEXT("A8101A"), TEXT("E9E9EA"), TEXT("2C3A52") }));
@@ -85,7 +121,7 @@ const FBoostedCarModel* UBoostedSettings::FindCar(FName Id) const
 	return Cars.FindByPredicate([Id](const FBoostedCarModel& C) { return C.Id == Id; });
 }
 
-TSubclassOf<ABoostedVehicle> UBoostedSettings::ResolveVehicleClass(FName Id) const
+UClass* UBoostedSettings::ResolveVehicleClass(FName Id) const
 {
 	if (const FBoostedCarModel* Model = FindCar(Id))
 	{
@@ -97,10 +133,17 @@ TSubclassOf<ABoostedVehicle> UBoostedSettings::ResolveVehicleClass(FName Id) con
 			}
 		}
 	}
-	return DefaultVehicleClass.IsNull() ? nullptr : DefaultVehicleClass.LoadSynchronous();
+	if (!DefaultVehicleClass.IsNull())
+	{
+		if (UClass* Cls = DefaultVehicleClass.LoadSynchronous())
+		{
+			return Cls;
+		}
+	}
+	return FindVehicleInFolder(TemplateSportsCarFolder);
 }
 
-TSubclassOf<ABoostedVehicle> UBoostedSettings::ResolvePoliceClass() const
+UClass* UBoostedSettings::ResolvePoliceClass() const
 {
 	if (!PoliceVehicleClass.IsNull())
 	{
@@ -108,6 +151,18 @@ TSubclassOf<ABoostedVehicle> UBoostedSettings::ResolvePoliceClass() const
 		{
 			return Cls;
 		}
+	}
+	const FBoostedCarModel* Interceptor = FindCar(TEXT("interceptor"));
+	if (Interceptor && !Interceptor->VehicleClass.IsNull())
+	{
+		if (UClass* Cls = Interceptor->VehicleClass.LoadSynchronous())
+		{
+			return Cls;
+		}
+	}
+	if (UClass* Cls = FindVehicleInFolder(TemplateOffroadFolder))
+	{
+		return Cls;
 	}
 	return ResolveVehicleClass(TEXT("interceptor"));
 }

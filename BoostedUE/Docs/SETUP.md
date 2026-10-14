@@ -51,24 +51,25 @@ In the editor:
 2. **Blueprint** tab → **Third Person** → **Add to Project**. This adds the animated mannequin.
 3. Do the same for **Vehicle**. This adds a drivable sports car and an offroad truck.
 
-## 5. Turn the template car into a BOOSTED car
+## 5. Cars (automatic)
 
-1. In the Content Drawer go to `VehicleTemplate/Blueprints/SportsCar` and double-click the car Blueprint (named like `SportsCar_Pawn`).
-2. Click **Class Settings** (toolbar) → look at **Parent Class** on the right.
-   - If the parent is **another Blueprint** (e.g. something ending in `PawnBase`), open *that* Blueprint instead and do the next step there.
-   - If the parent is **WheeledVehiclePawn**, do the next step on this one.
-3. **Parent Class → BoostedVehicle**. Click **Compile**, then **Save**.
-4. In that same Blueprint:
-   - In the **Components** panel, delete its own **Camera** / **SpringArm** components if it has any. BOOSTED adds its own chase camera.
-   - In the **Event Graph**, delete the input nodes (anything with `IA_` or "Input" in the name). BOOSTED handles driving input in C++.
-   - Compile and save.
-5. **Edit → Project Settings → Game → Boosted**:
-   - **Default Vehicle Class** = the sports car Blueprint.
-   - (Optional) **Police Vehicle Class** = the offroad truck Blueprint, or a duplicate of the car painted black and white.
+Nothing to do. If the Vehicle template is in the project (Step 4), BOOSTED uses its cars automatically:
+the **sports car** for street cars and the **offroad car** for police. When a car spawns, the game copies the
+template car's body, wheels, headlights, engine and handling onto a BOOSTED car. You don't need to reparent
+or edit the template Blueprints. Leave them as they are.
 
-**Paint not changing color?** Open the car's body material instance and note the name of its color parameter
-(e.g. `Paint Color`). In the car Blueprint go to **Class Defaults → Boosted → Paint**, and add that name to
-**Paint Color Parameters**. If the body material isn't detected at all, add its slot number to **Paint Material Slots**.
+To use a different car later (e.g. from City Sample Vehicles), set **Edit → Project Settings → Game → Boosted →
+Default Vehicle Class** (or **Police Vehicle Class**, or **Vehicle Class** on one entry in **Cars**). Any Chaos vehicle
+Blueprint works.
+
+**Advanced (optional):** for full control in Blueprint (the OnUpgradesApplied / OnHeavyImpact events), make a
+Blueprint whose parent class is **BoostedVehicle** and pick it in those same settings. Blueprints based on
+BoostedVehicle spawn as they are, without the copying.
+
+**Paint not changing color?** The game paints materials whose name contains *Paint* or *Body*. If it finds none,
+it paints the first material of a part named like *Chasis_Main* or *Body*. If the color still doesn't change, find
+the name of the body material's color parameter (e.g. `Paint Color`). Then make a BoostedVehicle Blueprint as above
+and add that name under **Class Defaults → Boosted → Paint → Paint Color Parameters**.
 
 ## 6. Make the level and press Play
 
@@ -132,8 +133,8 @@ This is how you get the Hood Warfare 2 level of realism. Until you do this you'l
 
 ## 8. Realistic cars and city
 
-- **Cars:** Epic's free **City Sample Vehicles** pack on Fab has realistic drivable cars. Give each car model its own Blueprint
-  (reparent as in Step 5), then set **Vehicle Class** on the matching entry in **Project Settings → Boosted → Cars**.
+- **Cars:** Epic's free **City Sample Vehicles** pack on Fab has realistic drivable cars. Set each car's Blueprint as the
+  **Vehicle Class** on the matching entry in **Project Settings → Boosted → Cars** (no reparenting needed, see Step 5).
   Keep the fictional names (Stallion Hellhound, Cortez Royale...). Real brands need a license before you sell on Steam.
 - **Buildings:** select the **BoostedCity** actor → **Details → Building Kits**, then add building meshes for houses, shops,
   apartments, towers and warehouses. The city swaps the gray boxes for them, scaled to fit each lot.

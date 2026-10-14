@@ -11,6 +11,9 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/SimpleConstructionScript.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
@@ -18,6 +21,76 @@
 #include "AIController.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+
+namespace
+{
+	/**
+	 * Recreates the parts a vehicle Blueprint adds in its Components panel (body panels, glass, wheel meshes,
+	 * headlights...) on another vehicle, attached to the same bones. Its own cameras are skipped.
+	 */
+	void CopyBlueprintParts(ABoostedVehicle* To, UClass* Source)
+	{
+		UBlueprintGeneratedClass* Actual = Cast<UBlueprintGeneratedClass>(Source);
+		// base Blueprint first, so parent parts exist before the parts attached to them
+		TArray<UBlueprintGeneratedClass*> Chain;
+		for (UClass* C = Source; C; C = C->GetSuperClass())
+		{
+			if (UBlueprintGeneratedClass* BP = Cast<UBlueprintGeneratedClass>(C))
+			{
+				Chain.Insert(BP, 0);
+			}
+		}
+		TMap<FName, USceneComponent*> Made;
+		TFunction<void(USCS_Node*, USceneComponent*)> AddPart;
+		AddPart = [&](USCS_Node* Node, USceneComponent* Parent)
+		{
+			// a child Blueprint can override a parent's part; this returns the version Source actually uses
+			USceneComponent* Template = Node ? Cast<USceneComponent>(Node->GetActualComponentTemplate(Actual)) : nullptr;
+			if (!Template || Template->IsA<UCameraComponent>() || Template->IsA<USpringArmComponent>())
+			{
+				return;
+			}
+			USceneComponent* Part = Cast<USceneComponent>(To->CreateComponentFromTemplate(Template, Node->GetVariableName()));
+			if (!Part)
+			{
+				return;
+			}
+			Part->SetupAttachment(Parent, Node->AttachToName);
+			// looks only: the skeletal mesh's physics body is the car's collision
+			if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Part))
+			{
+				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			}
+			Part->CreationMethod = EComponentCreationMethod::Instance;
+			To->AddInstanceComponent(Part);
+			Part->RegisterComponent();
+			Made.Add(Node->GetVariableName(), Part);
+			for (USCS_Node* Child : Node->GetChildNodes())
+			{
+				AddPart(Child, Part);
+			}
+		};
+		for (UBlueprintGeneratedClass* BP : Chain)
+		{
+			if (!BP->SimpleConstructionScript)
+			{
+				continue;
+			}
+			for (USCS_Node* Root : BP->SimpleConstructionScript->GetRootNodes())
+			{
+				// parts on the inherited vehicle mesh go on ours (it's the root on both)
+				USceneComponent* const* Parent = Made.Find(Root->ParentComponentOrVariableName);
+				AddPart(Root, Parent ? *Parent : To->GetRootComponent());
+			}
+		}
+	}
+
+	bool IsHiddenInGame(const USceneComponent* Comp)
+	{
+		const FBoolProperty* Prop = FindFProperty<FBoolProperty>(USceneComponent::StaticClass(), TEXT("bHiddenInGame"));
+		return Prop && Prop->GetPropertyValue_InContainer(Comp);
+	}
+}
 
 ABoostedVehicle::ABoostedVehicle()
 {
@@ -61,6 +134,8 @@ ABoostedVehicle::ABoostedVehicle()
 	EngineAudio->bAutoActivate = false;
 
 	GetMesh()->SetNotifyRigidBodyCollision(true);
+	// Chaos vehicles only drive when the body simulates (WheeledVehiclePawn leaves this off)
+	GetMesh()->BodyInstance.bSimulatePhysics = true;
 
 	PaintColorParameters = { TEXT("Paint Color"), TEXT("PaintColor"), TEXT("Body Color"), TEXT("BodyColor"), TEXT("Base Color"), TEXT("BaseColor"), TEXT("Color"), TEXT("Paint Tint"), TEXT("Tint") };
 	PaintMaterialKeywords = { TEXT("Paint"), TEXT("Body"), TEXT("Carpaint"), TEXT("Car_Paint") };
@@ -86,6 +161,65 @@ void ABoostedVehicle::BeginPlay()
 	if (VehicleRole == EVehicleRole::Parked)
 	{
 		SetParked(true);
+	}
+}
+
+void ABoostedVehicle::CopyBodyFrom(TSubclassOf<AWheeledVehiclePawn> Source)
+{
+	// A Blueprint's edits to the inherited Mesh and VehicleMovementComp live on its class default object.
+	const AWheeledVehiclePawn* From = Source ? Source->GetDefaultObject<AWheeledVehiclePawn>() : nullptr;
+	USkeletalMeshComponent* Body = GetMesh();
+	UChaosWheeledVehicleMovementComponent* To = GetChaos();
+	if (!From || !From->GetMesh() || !Body || !To)
+	{
+		return;
+	}
+
+	// 1. every editable Chaos setting (wheels, engine, torque curve, gears, steering, mass...), but nothing from
+	// the base movement classes, which hold references to the source's own components. Wheels go first because
+	// the animation Blueprint reads them when it starts.
+	if (const UChaosWheeledVehicleMovementComponent* FromMove = Cast<UChaosWheeledVehicleMovementComponent>(From->GetVehicleMovementComponent()))
+	{
+		for (TFieldIterator<FProperty> It(UChaosWheeledVehicleMovementComponent::StaticClass()); It; ++It)
+		{
+			const FProperty* Prop = *It;
+			const UClass* Owner = Prop->GetOwnerClass();
+			if (!Owner || !Owner->IsChildOf(UChaosVehicleMovementComponent::StaticClass())
+				|| !Prop->HasAnyPropertyFlags(CPF_Edit)
+				|| Prop->HasAnyPropertyFlags(CPF_Transient | CPF_Deprecated | CPF_InstancedReference | CPF_ContainsInstancedReference))
+			{
+				continue;
+			}
+			Prop->CopyCompleteValue_InContainer(To, FromMove);
+		}
+	}
+
+	// 2. the body: mesh, materials, collision and the animation Blueprint that spins and steers the wheels
+	const USkeletalMeshComponent* FromBody = From->GetMesh();
+	Body->SetSkeletalMeshAsset(FromBody->GetSkeletalMeshAsset());
+	for (int32 i = 0; i < FromBody->GetNumMaterials(); ++i)
+	{
+		if (UMaterialInterface* Mat = FromBody->GetMaterial(i))
+		{
+			Body->SetMaterial(i, Mat);
+		}
+	}
+	Body->SetCollisionProfileName(FromBody->GetCollisionProfileName());
+	// some cars use a hidden physics-only skeleton and show separate parts instead
+	Body->SetVisibility(FromBody->IsVisible());
+	Body->SetHiddenInGame(IsHiddenInGame(FromBody));
+	if (FromBody->AnimClass)
+	{
+		Body->SetAnimInstanceClass(FromBody->AnimClass);
+	}
+	CopyBlueprintParts(this, Source);
+
+	// 3. components were registered while the car still had no mesh, so the physics body and the Chaos vehicle
+	// were never built; build them now (mesh first, the vehicle sim needs its bodies)
+	if (Body->IsRegistered())
+	{
+		Body->RecreatePhysicsState();
+		To->RecreatePhysicsState();
 	}
 }
 
@@ -115,30 +249,48 @@ void ABoostedVehicle::CacheBaseTuning()
 void ABoostedVehicle::CachePaintMaterials()
 {
 	PaintMaterials.Reset();
-	USkeletalMeshComponent* Body = GetMesh();
-	if (!Body)
+	// the body can be the skeletal mesh or separate parts (e.g. the Vehicle template's Chasis_Main)
+	TArray<UMeshComponent*> Parts;
+	GetComponents<UMeshComponent>(Parts);
+	for (UMeshComponent* Part : Parts)
 	{
-		return;
-	}
-	const TArray<FName> SlotNames = Body->GetMaterialSlotNames();
-	for (int32 i = 0; i < Body->GetNumMaterials(); ++i)
-	{
-		UMaterialInterface* Mat = Body->GetMaterial(i);
-		const FString MatName = Mat ? Mat->GetName() : FString();
-		const FString SlotName = SlotNames.IsValidIndex(i) ? SlotNames[i].ToString() : FString();
-		bool bMatch = PaintMaterialSlots.Contains(i);
-		for (const FString& Word : PaintMaterialKeywords)
+		const TArray<FName> SlotNames = Part->GetMaterialSlotNames();
+		for (int32 i = 0; i < Part->GetNumMaterials(); ++i)
 		{
-			if (!Word.IsEmpty() && (MatName.Contains(Word) || SlotName.Contains(Word)))
+			UMaterialInterface* Mat = Part->GetMaterial(i);
+			const FString MatName = Mat ? Mat->GetName() : FString();
+			const FString SlotName = SlotNames.IsValidIndex(i) ? SlotNames[i].ToString() : FString();
+			bool bMatch = Part == GetMesh() && PaintMaterialSlots.Contains(i);
+			for (const FString& Word : PaintMaterialKeywords)
 			{
-				bMatch = true;
+				if (!Word.IsEmpty() && (MatName.Contains(Word) || SlotName.Contains(Word)))
+				{
+					bMatch = true;
+				}
+			}
+			if (bMatch)
+			{
+				if (UMaterialInstanceDynamic* MID = Part->CreateAndSetMaterialInstanceDynamic(i))
+				{
+					PaintMaterials.Add(MID);
+				}
 			}
 		}
-		if (bMatch)
+	}
+	// nothing named like paint: use the first material of the main body part
+	if (PaintMaterials.Num() == 0)
+	{
+		for (UMeshComponent* Part : Parts)
 		{
-			if (UMaterialInstanceDynamic* MID = Body->CreateAndSetMaterialInstanceDynamic(i))
+			const FString PartName = Part->GetName();
+			const bool bBodyPart = PartName.Contains(TEXT("Chasis_Main")) || PartName.Contains(TEXT("Chassis")) || PartName.Contains(TEXT("Body"));
+			if (bBodyPart && Part->IsVisible() && Part->GetNumMaterials() > 0)
 			{
-				PaintMaterials.Add(MID);
+				if (UMaterialInstanceDynamic* MID = Part->CreateAndSetMaterialInstanceDynamic(0))
+				{
+					PaintMaterials.Add(MID);
+				}
+				break;
 			}
 		}
 	}

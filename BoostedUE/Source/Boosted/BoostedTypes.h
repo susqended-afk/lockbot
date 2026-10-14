@@ -6,6 +6,7 @@
 #include "BoostedTypes.generated.h"
 
 class ABoostedVehicle;
+class AWheeledVehiclePawn;
 class ABoostedCharacter;
 class USkeletalMesh;
 class UStaticMesh;
@@ -158,8 +159,8 @@ struct BOOSTED_API FBoostedCarModel
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Car") float Rarity = 10.f;
 	/** Multiplies the Blueprint's engine torque so one vehicle Blueprint can stand in for several models. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Car") float PerformanceScale = 1.f;
-	/** Vehicle Blueprint for this model. Leave empty to use Default Vehicle Class. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Car") TSoftClassPtr<ABoostedVehicle> VehicleClass;
+	/** Vehicle Blueprint for this model (any Chaos vehicle Blueprint). Leave empty to use Default Vehicle Class. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Car") TSoftClassPtr<AWheeledVehiclePawn> VehicleClass;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Car") TArray<FLinearColor> FactoryColors;
 
 	FString GetDisplayName() const { return Make + TEXT(" ") + Model; }

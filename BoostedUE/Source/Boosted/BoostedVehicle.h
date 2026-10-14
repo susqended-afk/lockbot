@@ -1,5 +1,6 @@
 // A drivable Chaos vehicle that can be parked, driven by traffic/police AI, stolen, upgraded, chopped or sold.
-// Make Blueprints of this class from any Chaos vehicle (e.g. the Vehicle template's sports car).
+// Either make Blueprints of this class, or point the settings at any Chaos vehicle Blueprint and let
+// CopyBodyFrom borrow its mesh and handling (that's how the Vehicle template cars work out of the box).
 #pragma once
 
 #include "CoreMinimal.h"
@@ -74,6 +75,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Boosted|Tuning") float DamageThreshold = 5.f;
 
 	// ------------------------------------------------------------------ API
+	/**
+	 * Call between SpawnActorDeferred and FinishSpawning. Copies the mesh, materials, animation Blueprint and
+	 * Chaos wheel/engine/transmission setup from any vehicle Blueprint, so it doesn't need reparenting.
+	 */
+	void CopyBodyFrom(TSubclassOf<AWheeledVehiclePawn> Source);
 	/** Apply upgrades: physics (torque, grip, brakes), paint, underglow. Calls OnUpgradesApplied for Blueprint mesh swaps. */
 	UFUNCTION(BlueprintCallable, Category = "Boosted") void ApplyUpgrades(const FCarUpgrades& NewUpgrades);
 	/** Implement in the vehicle Blueprint to swap wheels/spoilers/hoods by Upgrades.Wheels / Upgrades.Spoiler. */
