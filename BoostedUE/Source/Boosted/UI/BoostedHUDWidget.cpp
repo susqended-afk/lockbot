@@ -97,7 +97,8 @@ void UBoostedHUDWidget::BuildTree()
 
 	// top centre: objective
 	ObjectiveText = MakeText(15, FLinearColor::White);
-	ObjectiveText->SetAutoWrapText(true);
+	// auto-wrap inside an auto-sized slot collapses to one word per line; wrap at a fixed width instead
+	ObjectiveText->SetWrapTextAt(640.f);
 	ObjectiveBox = MakeBox(ObjectiveText, 0.55f);
 	Place(Root, ObjectiveBox, FAnchors(0.5f, 0.f), FVector2D(0.5f, 0.f), FVector2D(0.f, 20.f));
 
