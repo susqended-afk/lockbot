@@ -183,8 +183,8 @@ void ABoostedVehicle::CopyBodyFrom(TSubclassOf<AWheeledVehiclePawn> Source)
 		for (TFieldIterator<FProperty> It(UChaosWheeledVehicleMovementComponent::StaticClass()); It; ++It)
 		{
 			const FProperty* Prop = *It;
-			const UClass* Owner = Prop->GetOwnerClass();
-			if (!Owner || !Owner->IsChildOf(UChaosVehicleMovementComponent::StaticClass())
+			const UClass* PropOwner = Prop->GetOwnerClass();
+			if (!PropOwner || !PropOwner->IsChildOf(UChaosVehicleMovementComponent::StaticClass())
 				|| !Prop->HasAnyPropertyFlags(CPF_Edit)
 				|| Prop->HasAnyPropertyFlags(CPF_Transient | CPF_Deprecated | CPF_InstancedReference | CPF_ContainsInstancedReference))
 			{
