@@ -78,7 +78,8 @@ const ICONS = {
   building: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/>',
 };
 const ic = (n, extra = '') => `<svg class="i ${extra}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ICONS.plus}</svg>`;
-const AVATAR = { Chad: ['C', '#ff8a5b', '#ffcf7a'], Kev: ['K', '#4aa8ff', '#7a6bff'], Mo: ['M', '#1fd18a', '#8af06b'], Mom: ['♥', '#ff7aa8', '#ffc0d6'] };
+const AVATAR = { Chad: ['C', '#ff8a5b', '#ffcf7a'], Kev: ['K', '#4aa8ff', '#7a6bff'], Mo: ['M', '#1fd18a', '#8af06b'], Mom: ['♥', '#ff7aa8', '#ffc0d6'], Zoe: ['Z', '#ff8ab0', '#ffb547'], Dex: ['D', '#40ffb0', '#3ec5ff'],
+  '@SolSamurai': ['🗡', '#ff6a3d', '#ffb547'], '@rugmaster_flex': ['😈', '#b26bff', '#ff3fd2'], '@BuilderBen': ['B', '#3ec5ff', '#7a6bff'] };
 const av = (name, size = 30) => { const a = AVATAR[name] || [name[0] || '?', '#5b6475', '#8a93a6']; return `<span class="av" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,${a[1]},${a[2]})">${h(a[0])}</span>`; };
 const METHOD_LABEL = { lp: 'Liquidity pull', devdump: 'Dev dump', died: 'Died', abandoned: 'Closed' };
 const NAV = [['home', 'Home', 'home'], ['trenches', 'Trenches', 'flame'], ['terminal', 'Terminal', 'chart'], ['launch', 'Launch', 'rocket'], ['chirp', 'Chirp', 'chirp'], ['radar', 'RugRadar', 'shield'], ['wallet', 'Wallet', 'wallet'], ['shop', 'Shop', 'bag'], ['messages', 'Messages', 'msg'], ['tunes', 'Tunes', 'music'], ['wiki', 'Wiki', 'book'], ['history', 'History', 'clock']];
@@ -97,7 +98,7 @@ const UI = {
     $('#dialog').addEventListener('click', (e) => { const b = e.target.closest('[data-topic]'); if (b) { AUDIO.sfx('click'); this.ctx.dialogTopic(b.dataset.topic); } });
     BUS.addEventListener('coinevent', (e) => this.onCoinEvent(e.detail));
     BUS.addEventListener('feed', () => { if (this.pcOpen && this.app === 'chirp') this.renderAppKeep(); });
-    BUS.addEventListener('objective', () => { this.updateObjective(); AUDIO.sfx('notify'); this.toast(`Objective done. Next: ${OBJECTIVES[S.objective] || 'enjoy the view'}`, 'good'); });
+    BUS.addEventListener('objective', () => { this.updateObjective(); AUDIO.sfx('notify'); const g = currentGoal(); this.toast(g.key ? `Objective done. Next: ${g.text}` : `Chapter ${S.chapter} complete.`, 'good'); });
     BUS.addEventListener('posted', (e) => {
       AUDIO.sfx('tweet');
       const p = e.detail.post;
@@ -130,13 +131,18 @@ const UI = {
     $('#h-stam').style.width = Math.min(100, S.stamina / staminaMax() * 100) + '%';
     $('#h-stamv').textContent = Math.round(S.stamina);
     $('#h-day').textContent = `DAY ${S.day}`;
+    const ph = S.cycle?.phase || 'normal';
+    $('#h-loc').innerHTML = `${h(LOCS[S.loc]?.name || '')}${ph !== 'normal' ? ` <i class="cyc ${ph}">${ph === 'bull' ? 'BULL' : 'BEAR'}</i>` : ''}`;
     $('#h-time').textContent = clockText();
     $('#coinbar').innerHTML = LIVE.map((c) => {
       const ph = c.priceHist, ch = ph.length > 10 ? c.price() / ph[ph.length - 11] - 1 : 0;
       return `<div class="tick ${ch >= 0 ? 'up' : 'down'}">${coinIcon(c, 18)}<b>$${h(c.ticker)}</b><span>${usdC(c.mcapSol())}</span><i>${fmtPct(ch)}</i></div>`;
     }).join('');
   },
-  updateObjective() { const o = OBJECTIVES[S.objective]; $('#objective').innerHTML = o ? `<span>Objective ${S.objective + 1}/${OBJECTIVES.length}</span>${h(o)}` : ''; },
+  updateObjective() {
+    const g = currentGoal();
+    $('#objective').innerHTML = `<span>${S.mode === 'sandbox' ? 'Sandbox · ' : ''}Chapter ${S.chapter} · ${g.key ? `${g.doneCount + 1}/${g.total}` : 'done'}</span>${h(g.text)}`;
+  },
   prompt(text) {
     const p = $('#prompt'), b = $('#use-btn');
     if (!text) { p.hidden = true; b.hidden = true; return; }
@@ -182,6 +188,19 @@ const UI = {
     m.innerHTML = `<div class="mbox ${cls}">${html}<div class="mbtns">${buttons.map(([id, label, k]) => `<button class="btn ${k || ''}" data-modal="${id}">${label}</button>`).join('')}</div></div>`;
     m.hidden = false; this._modalCb = cb;
   },
+  // story events: a card with choices; disabled choices explain why
+  eventModal(ev, cb) {
+    const m = $('#modal');
+    const who = ev.who ? `<div class="ev-who">${av('@' + ev.who.handle, 34)}<div><b>@${h(ev.who.handle)}</b><span>${h(ev.who.bio)}</span></div></div>` : '';
+    m.innerHTML = `<div class="mbox ev ${ev.finale ? 'finale' : ''} ${ev.scene ? 'scene-' + ev.scene : ''}"><div class="ev-top"><span class="ev-ic">${ev.icon || '✦'}</span><span class="kicker">${h(ev.kicker || '')}</span></div><h2>${h(ev.title)}</h2>${who}<div class="ev-body">${ev.body}</div>
+      <div class="choices">${ev.choices.map((c) => `<button class="choice ${c.kind || ''}" data-choice="${c.id}" ${c.disabled ? 'disabled' : ''}><b>${h(c.label)}</b>${c.sub ? `<span>${h(c.sub)}</span>` : ''}${c.disabled ? `<em>${h(c.disabled)}</em>` : ''}</button>`).join('')}</div></div>`;
+    m.hidden = false;
+    m.onclick = (e) => {
+      const b = e.target.closest('[data-choice]'); if (!b || b.disabled) return;
+      AUDIO.sfx('click'); m.onclick = null; m.hidden = true;
+      cb(ev.choices.find((c) => c.id === b.dataset.choice));
+    };
+  },
   confirm(html, yes, cb, kind = 'danger') { this.modal(html, [['no', 'Cancel', 'ghost'], ['yes', yes, kind]], (id) => id === 'yes' && cb()); },
 
   // ---------------- PC shell ----------------
@@ -189,7 +208,7 @@ const UI = {
     this.pcOpen = true; if (app) this.app = app;
     $('#pc').hidden = false; document.body.classList.add('in-pc');
     this.renderPC();
-    advanceObjective(0);
+    objDone('pc');
   },
   closePC() { this.pcOpen = false; $('#pc').hidden = true; document.body.classList.remove('in-pc'); },
   renderNav() {
@@ -225,8 +244,8 @@ const UI = {
   app_home() {
     const hot = ECO.filter((c) => c.isLive()).sort((a, b) => b.mcapSol() - a.mcapSol()).slice(0, 4);
     const positions = ECO.filter((c) => (c.you()?.tokens || 0) > 0);
-    const done = S.objective, total = OBJECTIVES.length;
-    return `<div class="page-head"><div><h1>Good ${S.clock % 1440 < 720 ? 'morning' : 'evening'}, @${h(S.handle)}</h1><p>Day ${S.day}. ${S.meta} are the meta today, market mood is ${S.sentiment > 1.15 ? 'euphoric' : S.sentiment < 0.8 ? 'bearish' : 'normal'}.</p></div><div class="chips"><button class="btn primary" data-act="app" data-app="launch">${ic('rocket')}Launch a coin</button><button class="btn" data-act="app" data-app="trenches">${ic('flame')}Trenches</button></div></div>
+    const goal = currentGoal();
+    return `<div class="page-head"><div><h1>Good ${S.clock % 1440 < 720 ? 'morning' : 'evening'}, @${h(S.handle)}</h1><p>Day ${S.day}. ${S.meta} are the meta today, market mood is ${S.cycle.phase === 'bull' ? 'a full bull run' : S.cycle.phase === 'bear' ? 'a bear market' : S.sentiment > 1.15 ? 'euphoric' : S.sentiment < 0.8 ? 'bearish' : 'normal'}.</p></div><div class="chips"><button class="btn primary" data-act="app" data-app="launch">${ic('rocket')}Launch a coin</button><button class="btn" data-act="app" data-app="trenches">${ic('flame')}Trenches</button></div></div>
     <div class="home">
       <div class="stack">
         <section class="panel"><div class="nw"><span class="lbl">Net worth</span><span class="big" id="hm-nw"></span><span id="hm-nwch" class="num"></span><canvas id="hm-spark" height="84"></canvas></div>
@@ -238,7 +257,7 @@ const UI = {
         ${positions.length ? `<section class="panel"><div class="panel-h"><h3>Open positions</h3></div><div class="rowlist">${positions.map((c) => `<div class="row" data-act="open" data-id="${c.id}">${coinIcon(c, 34)}<div class="nm"><b>${h(c.name)}</b><span>$${h(c.ticker)}</span></div><div class="rv"><span data-f="pv${c.id}"></span><small data-f="pp${c.id}"></small></div></div>`).join('')}</div></section>` : ''}
       </div>
       <div class="stack">
-        <section class="panel obj"><span class="lbl-sm">Objective ${Math.min(done + 1, total)} of ${total}</span><b>${h(OBJECTIVES[done] || 'All done. Enjoy the penthouse.')}</b><div class="prog"><i style="width:${done / total * 100}%"></i></div></section>
+        <section class="panel obj"><span class="lbl-sm">Chapter ${S.chapter} · ${h(CHAPTERS[S.chapter - 1].title)}</span><b>${h(goal.text)}</b><div class="prog"><i style="width:${goal.doneCount / goal.total * 100}%"></i></div><span class="dim" style="font-size:12px">${goal.doneCount} of ${goal.total} done · ${h(LOCS[S.loc].name)}${S.cycle.phase !== 'normal' ? ` · <b class="${S.cycle.phase === 'bull' ? 'up' : 'down'}">${S.cycle.phase === 'bull' ? 'Bull run' : 'Bear market'}</b>` : ''}</span></section>
         <section class="panel"><div class="panel-h"><h3>Hot in the Trenches</h3><button class="btn ghost sm" data-act="app" data-app="trenches">View all</button></div>
           <div class="rowlist">${hot.map((c) => `<div class="row" data-act="open" data-id="${c.id}">${coinIcon(c, 30)}<div class="nm"><b>${h(c.name)}</b><span>$${h(c.ticker)} · ${fmtDur(c.t)}</span></div><div class="rv">${usdC(c.mcapSol())}<small class="dim">${c.holderCount()} holders</small></div></div>`).join('') || '<div class="empty"><p>Quiet right now.</p></div>'}</div></section>
         <section class="panel"><div class="panel-h"><h3>Messages</h3><button class="btn ghost sm" data-act="app" data-app="messages">Open</button></div>
@@ -283,7 +302,7 @@ const UI = {
     const prof = c.npc && (S.owned.serverRack || c.npc.step > 0 && c.npc.profile === 'rugger') ? `<span class="badge ${c.npc.profile === 'rugger' ? 'down' : c.npc.profile === 'flipper' ? 'warn' : 'up'}">${DEV_PROFILES[c.npc.profile]}</span>` : '';
     return `<div class="tcard ${mine ? 'mine' : ''} ${hold ? 'hold' : ''}" data-act="open" data-id="${c.id}">
       <div class="tc-top">${coinIcon(c, 40)}<div class="nm"><b>${h(c.name)}</b><span>$${h(c.ticker)} · <span data-f="age${c.id}">${fmtDur(c.t)}</span></span></div><div class="tc-mc"><span data-f="mc${c.id}">${usdC(c.mcapSol())}</span><small>mcap</small></div></div>
-      <div class="tc-meta"><span>${ic('users')}</span><span data-f="ho${c.id}">${c.holderCount()}</span><span>vol <span data-f="vo${c.id}">${usdC(c.volume)}</span></span>${mine ? '<span class="badge brand">Yours</span>' : ''}${hold ? '<span class="badge up">Holding</span>' : ''}${c.copycatOf ? '<span class="badge warn">Copycat</span>' : ''}${prof}<span data-f="rk${c.id}"></span></div>
+      <div class="tc-meta"><span>${ic('users')}</span><span data-f="ho${c.id}">${c.holderCount()}</span><span>vol <span data-f="vo${c.id}">${usdC(c.volume)}</span></span>${mine ? '<span class="badge brand">Yours</span>' : ''}${hold ? '<span class="badge up">Holding</span>' : ''}${c.copycatOf ? '<span class="badge warn">Copycat</span>' : ''}${c.rival ? `<span class="badge rival" style="--rc:${RIVALS[c.rival].color}">@${h(RIVALS[c.rival].handle)}</span>` : ''}${c.celeb ? `<span class="badge brand">⭐ ${h(c.celeb)}</span>` : ''}${c.listed ? '<span class="badge info">MoonEx</span>' : ''}${prof}<span data-f="rk${c.id}"></span></div>
       ${c.phase === 'curve' ? `<div class="tc-curve"><i data-f="cv${c.id}" style="width:${c.progress() * 100}%"></i></div>` : ''}
       ${mine ? '' : `<div class="tc-act"><button class="btn buy" data-act="qbuy" data-id="${c.id}" data-sol="0.1">Buy 0.1</button><button class="btn buy" data-act="qbuy" data-id="${c.id}" data-sol="0.5">Buy 0.5</button></div>`}
     </div>`;
@@ -514,7 +533,8 @@ const UI = {
       </div>
       <div class="stack">
         <section class="panel"><div class="panel-h"><h3>Your posts</h3></div><div id="c-posts"></div></section>
-        <section class="panel"><div class="panel-h"><h3>Notifications</h3></div>${S.feed.slice(0, 10).map((f) => `<div class="notif ${f.kind || ''}"><i class="dot"></i><div><b>${h(f.who)}</b> ${h(f.text)}</div></div>`).join('') || '<div class="empty"><p>Nothing yet.</p></div>'}</section>
+        ${Object.keys(S.rivals).length ? `<section class="panel"><div class="panel-h"><h3>Rivals</h3></div><div class="rowlist">${Object.entries(S.rivals).map(([k, r]) => { const R = RIVALS[k]; const mood = rivalMood(k); const coin = ECO.find((c) => c.rival === k && c.isLive()); return `<div class="row rival-row" ${coin ? `data-act="open" data-id="${coin.id}"` : ''}>${av('@' + R.handle, 34)}<div class="nm"><b>@${h(R.handle)}</b><span>${h(R.bio)}</span></div><div class="rv"><span class="badge ${mood === 'Feud' ? 'down' : mood === 'Friendly' ? 'up' : ''}">${mood}</span><small class="dim">${coin ? `$${h(coin.ticker)} · ${usdC(coin.mcapSol())}` : `${fmtNum(R.followers)} followers`}</small></div></div>`; }).join('')}</div></section>` : ''}
+        <section class="panel"><div class="panel-h"><h3>Timeline</h3></div>${S.feed.slice(0, 12).map((f) => `<div class="notif ${f.kind || ''}">${f.who.startsWith('@') ? av(f.who, 26) : '<i class="dot"></i>'}<div><b>${h(f.who)}</b> ${h(f.text)}</div></div>`).join('') || '<div class="empty"><p>Nothing yet.</p></div>'}</section>
       </div>
     </div>`;
   },
@@ -559,12 +579,15 @@ const UI = {
   app_shop() {
     const cats = ['All', ...new Set(ITEMS.map((i) => i.cat))];
     const list = ITEMS.filter((i) => this.shopCat === 'All' || i.cat === this.shopCat);
-    return `<div class="page-head"><div><h1>Shop</h1><p>Upgrades show up in the basement. Pay with cash from the Wallet.</p></div><div class="pill" style="height:40px;font-size:15px"><span class="lbl">Cash</span>${fmtUSD(S.cash)}</div></div>
+    return `<div class="page-head"><div><h1>Shop</h1><p>Upgrades show up wherever you live, and move with you. Pay with cash from the Wallet.</p></div><div class="pill" style="height:40px;font-size:15px"><span class="lbl">Cash</span>${fmtUSD(S.cash)}</div></div>
       <div class="chips" style="margin-bottom:14px">${cats.map((c) => `<button class="chip ${this.shopCat === c ? 'on' : ''}" data-act="shopcat" data-v="${c}">${c}</button>`).join('')}</div>
       <div class="shop-grid">${list.map((it) => {
         const owned = !it.consumable && S.owned[it.id];
-        const locked = it.req && !S.owned[it.req];
-        return `<div class="item ${owned ? 'owned' : ''}"><div class="ih"><span class="ico">${ic(it.icon)}</span><div><b>${h(it.name)}</b><span class="cat">${it.cat}</span></div></div><p>${h(it.desc)}${it.id === 'drinks' ? ` In fridge: ${S.owned.vending ? '∞' : S.drinks}.` : ''}</p><div class="buyrow"><span class="price">${fmtUSD(it.price)}</span>${owned ? `<span class="owned-tag">${ic('check')}Owned</span>` : `<button class="btn sm ${S.cash >= it.price && !locked ? 'primary' : ''}" data-act="buy" data-id="${it.id}" ${S.cash < it.price || locked ? 'disabled' : ''}>${locked ? `${ic('lock')}Needs ${h(ITEM[it.req].name)}` : 'Buy'}</button>`}</div></div>`;
+        const lockReq = it.req && !S.owned[it.req], lockF = it.follows && S.followers < it.follows;
+        const locked = lockReq || lockF;
+        const home = it.cat === 'Real estate';
+        const label = lockReq ? `${ic('lock')}Needs ${h(ITEM[it.req].name)}` : lockF ? `${ic('lock')}${fmtNum(it.follows)} followers` : home ? 'Move in' : 'Buy';
+        return `<div class="item ${owned ? 'owned' : ''} ${home ? 'home-item' : ''}"><div class="ih"><span class="ico">${ic(it.icon)}</span><div><b>${h(it.name)}</b><span class="cat">${it.cat}${home && S.loc === it.id ? ' · You live here' : ''}</span></div></div><p>${h(it.desc)}${it.id === 'drinks' ? ` In fridge: ${S.owned.vending ? '∞' : S.drinks}.` : ''}</p><div class="buyrow"><span class="price">${fmtUSD(it.price)}</span>${owned ? `<span class="owned-tag">${ic('check')}${home ? 'Yours' : 'Owned'}</span>` : `<button class="btn sm ${S.cash >= it.price && !locked ? 'primary' : ''}" data-act="buy" data-id="${it.id}" ${S.cash < it.price || locked ? 'disabled' : ''}>${label}</button>`}</div></div>`;
       }).join('')}</div>`;
   },
 
@@ -741,7 +764,8 @@ const UI = {
       case 'buy': {
         const it = ITEM[b.dataset.id];
         const go = () => { if (this.act(() => buyItem(it.id))) { AUDIO.sfx('buy'); this.toast(`Bought ${it.name}`, 'good'); this.renderAppKeep(); } };
-        if (it.price >= 10000) this.confirm(`<h3>Buy ${h(it.name)}?</h3><p class="mut">${fmtUSD(it.price)}. ${h(it.desc)}</p>`, 'Buy it', go, 'primary'); else go();
+        if (it.cat === 'Real estate') this.confirm(`<h3>Move into ${h(it.name)}?</h3><p class="mut">${fmtUSD(it.price)}. ${h(it.desc)}</p><p class="mut">Everything you own comes with you.</p>`, 'Move in', go, 'primary');
+        else if (it.price >= 10000) this.confirm(`<h3>Buy ${h(it.name)}?</h3><p class="mut">${fmtUSD(it.price)}. ${h(it.desc)}</p>`, 'Buy it', go, 'primary'); else go();
         break;
       }
       case 'music-toggle': AUDIO.init(); MUSIC.toggle(); this.live(true); if (this.app === 'tunes') this.renderAppKeep(); break;

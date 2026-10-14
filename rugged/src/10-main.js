@@ -10,7 +10,7 @@ const SET = (() => {
 const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } };
 
 const G = { paused: true, started: false, mode: 'walk', dialogWith: null, frame: 0 };
-let renderer, scene, camera, composer, WORLD, player, CREW = {};
+let renderer, scene, camera, composer, WORLD, player, CREW = {}, QUAL = null;
 
 function setLoading(text, pct) {
   const l = $('#loading'); if (!l) return;
@@ -22,6 +22,7 @@ async function boot() {
   const high = SET.quality === 'high';
   TEX_SIZE = high ? 1024 : 512;
   const Q = { tex: TEX_SIZE, shadow: high ? 2048 : 1024, high };
+  QUAL = Q;
   setLoading('Waking up the basement…', 5); await nextFrame();
   await loadEmoji();
   renderer = new THREE.WebGLRenderer({ antialias: high, powerPreference: 'high-performance' });
@@ -37,11 +38,12 @@ async function boot() {
   scene.environmentIntensity = 0.12;
   camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.03, 60);
   setLoading('Pouring concrete…', 15); await nextFrame();
-  WORLD = buildWorld(scene, Q);
+  WORLD = buildWorld(scene, Q, 'basement');
+  scene.environmentIntensity = WORLD.loc.env;
   setLoading('Loading photo textures…', 55); await nextFrame();
   await applyPhotoTextures(WORLD);
   setLoading('Calling the crew…', 70); await nextFrame();
-  for (const k of ['kev', 'mo']) { CREW[k] = new Person({ ...CREW_SPECS[k], ...(k === 'mo' ? { phone: true, cash: false } : {}) }); scene.add(CREW[k].root); }
+  for (const k of ['kev', 'mo', 'zoe', 'dex']) { CREW[k] = new Person({ ...CREW_SPECS[k], ...(k === 'mo' ? { phone: true, cash: false } : {}) }); CREW[k].root.visible = false; scene.add(CREW[k].root); }
   setLoading('Carrying the couch downstairs…', 82); await nextFrame();
   await loadSofa();
   composer = new EffectComposer(renderer);
@@ -59,50 +61,93 @@ async function boot() {
   requestAnimationFrame(loop);
 }
 
-// ---------- photo textures (brick walls, pine boards) ----------
-async function applyPhotoTextures(W) {
+// ---------- photo textures (brick walls, hardwood) ----------
+let PHOTO = null;
+async function loadPhotos() {
+  if (PHOTO) return PHOTO;
   const L = new THREE.TextureLoader();
-  const load = (f, srgb) => new Promise((res) => L.load('assets/' + f, (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; res(t); }, undefined, () => res(null)));
+  const load = (f, srgb) => new Promise((res) => L.load('assets/' + f, (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; KEEP_TEX.add(t); res(t); }, undefined, () => res(null)));
   const [bd, bb, br, wd, wb, wr] = await Promise.all([load('brick_diffuse.jpg', true), load('brick_bump.jpg'), load('brick_roughness.jpg'), load('hardwood2_diffuse.jpg', true), load('hardwood2_bump.jpg'), load('hardwood2_roughness.jpg')]);
-  if (bd) {
-    for (const t of [bd, bb, br]) t && t.repeat.set(0.8, 1.04);
-    const m = W.mats.wall;
-    m.map = bd; m.bumpMap = bb; m.bumpScale = 3; m.roughnessMap = br; m.normalMap = null;
-    m.color.set(0xb9ada3); m.roughness = 1; m.needsUpdate = true;
-  }
-  if (wd) {
-    const tune = (m, rx, ry, tint) => {
-      const c = (t) => { if (!t) return null; const n = t.clone(); n.repeat.set(rx, ry); n.needsUpdate = true; return n; };
-      m.map = c(wd); m.bumpMap = c(wb); m.bumpScale = 1.5; m.roughnessMap = c(wr); m.normalMap = null; m.color.set(tint); m.needsUpdate = true;
-    };
-    tune(W.mats.ply, 1, 1, 0x8c857a);    // subfloor boards overhead (aged, dim)
-    tune(W.mats.pine, 1, 0.35, 0xa49786); // joists, stairs, sawhorses
+  PHOTO = { brick: bd && { d: bd, b: bb, r: br }, hardwood: wd && { d: wd, b: wb, r: wr } };
+  return PHOTO;
+}
+async function applyPhotoTextures(W) {
+  const P = await loadPhotos();
+  for (const p of W.photo) {
+    const set = P[p.set]; if (!set) continue;
+    const c = (t) => { if (!t) return null; const n = t.clone(); n.repeat.set(p.repeat[0], p.repeat[1]); n.needsUpdate = true; return n; };
+    const m = p.mat;
+    m.map = c(set.d); m.bumpMap = c(set.b); m.bumpScale = p.bump; m.roughnessMap = c(set.r); m.normalMap = null;
+    m.color.set(p.tint); m.needsUpdate = true;
   }
 }
+let SOFA = null;
 async function loadSofa() {
   try {
-    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-    // .glb when served from the repo; a base64 .js module where only scripts are served
-    let buf = null;
-    try { const r = await fetch('assets/sofa.glb'); if (r.ok) buf = await r.arrayBuffer(); } catch (e) { /* fall through */ }
-    if (!buf) { const m = await import('./assets/sofa.js'); const b = atob(m.default); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); buf = u.buffer; }
-    const gltf = await new GLTFLoader().parseAsync(buf, '');
-    const sofa = gltf.scene;
-    const box = new THREE.Box3().setFromObject(sofa), size = box.getSize(new THREE.Vector3());
-    const s = 2.0 / Math.max(size.x, size.z);
-    sofa.scale.setScalar(s);
-    const b2 = new THREE.Box3().setFromObject(sofa), c = b2.getCenter(new THREE.Vector3());
-    sofa.position.set(-c.x, -b2.min.y, -c.z);
-    const holder = new THREE.Group(); holder.add(sofa);
-    holder.position.set(2.5, 0, 1.05); holder.rotation.y = Math.PI / 2;
-    sofa.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    gltf.scene.traverse((o) => { if (o.isLight) o.visible = false; });
-    // swap the blocky placeholder couch for the real one
-    const couch = WORLD.items.couchTV.children.find((g) => g.position.x === 2.5);
-    if (couch) couch.visible = false;
-    WORLD.items.couchTV.add(holder);
+    if (!SOFA) {
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      // .glb when served from the repo; a base64 .js module where only scripts are served
+      let buf = null;
+      try { const r = await fetch('assets/sofa.glb'); if (r.ok) buf = await r.arrayBuffer(); } catch (e) { /* fall through */ }
+      if (!buf) { const m = await import('./assets/sofa.js'); const b = atob(m.default); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); buf = u.buffer; }
+      const gltf = await new GLTFLoader().parseAsync(buf, '');
+      const sofa = gltf.scene;
+      const box = new THREE.Box3().setFromObject(sofa), size = box.getSize(new THREE.Vector3());
+      sofa.scale.setScalar(2.0 / Math.max(size.x, size.z));
+      const b2 = new THREE.Box3().setFromObject(sofa), c = b2.getCenter(new THREE.Vector3());
+      sofa.position.set(-c.x, -b2.min.y, -c.z);
+      sofa.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } if (o.isLight) o.visible = false; o.userData.shared = true; });
+      SOFA = new THREE.Group(); SOFA.add(sofa); SOFA.userData.shared = true;
+    }
+    attachSofa(WORLD);
   } catch (e) { /* keep the placeholder couch */ }
 }
+function attachSofa(W) {
+  if (!SOFA || !W.couchGroup) return;
+  const s = SOFA.clone(true);
+  s.rotation.y = Math.PI;
+  W.couchPlaceholder.visible = false;
+  W.couchGroup.add(s);
+}
+
+// ---------- moving house ----------
+let moving = false;
+async function rebuildWorld(locId) {
+  disposeWorld(scene, WORLD);
+  WORLD = buildWorld(scene, QUAL, locId);
+  scene.environmentIntensity = WORLD.loc.env;
+  await applyPhotoTextures(WORLD);
+  attachSofa(WORLD);
+  player.W = WORLD;
+  WORLD.applyItems(S.owned); placeCrew();
+  const [sx, sz, yaw] = WORLD.loc.spawn;
+  player.setStand(new THREE.Vector3(sx, 0, sz), yaw);
+  player.update(0, []);
+}
+function chapterCard(n) {
+  const ch = CHAPTERS[n - 1]; if (!ch) return;
+  const el = $('#chapter');
+  el.innerHTML = `<div><span>CHAPTER ${n}</span><h1>${h(ch.title)}</h1><p>${h(ch.sub)}</p></div>`;
+  el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  clearTimeout(chapterCard._t); chapterCard._t = setTimeout(() => (el.hidden = true), 4300);
+}
+BUS.addEventListener('move', async (e) => {
+  const id = e.detail.loc;
+  moving = true;
+  UI.closePC(); if (UI.phoneOpen) UI.togglePhone(false);
+  player.unlock(); G.mode = 'modal'; player.enabled = true;
+  $('#fade').classList.add('on');
+  await new Promise((r) => setTimeout(r, 700));
+  await rebuildWorld(id);
+  saveGame();
+  $('#fade').classList.remove('on');
+  moving = false;
+  chapterCard(LOCS[id].chapter);
+  AUDIO.sfx('launch');
+  setTimeout(() => {
+    UI.modal(`<p class="kicker" style="font:500 12px var(--mono);color:var(--text-3);margin:0">Day ${S.day}</p><h2>Welcome to ${h(LOCS[id].name)}</h2><p>${h(LOCS[id].blurb)}</p><p class="mut">Everything you bought came with you. Rent is ${fmtUSD(HOMES[id].rent)} a day, paid when you sleep.</p>`, [['ok', 'Look around', 'primary']], () => { G.mode = 'walk'; player.lock(); });
+  }, 3600);
+});
 
 function onResize() {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -111,11 +156,12 @@ function onResize() {
 
 // ---------- crew ----------
 function placeCrew() {
-  const o = S.owned;
-  CREW.kev.root.visible = !!o.kev;
-  CREW.kev.root.position.set(WORLD.seats.kev.x, 0, WORLD.seats.kev.z); CREW.kev.root.rotation.y = -Math.PI / 2; CREW.kev.setState('type');
-  CREW.mo.root.visible = !!o.mo;
-  CREW.mo.root.position.set(3.75, 0, -1.7); CREW.mo.root.rotation.y = -Math.PI / 2; CREW.mo.setState('phone');
+  for (const [k, p] of Object.entries(CREW)) {
+    const spot = WORLD.crewSpots[k];
+    p.root.visible = !!(S?.owned[k] && spot);
+    if (!p.root.visible) continue;
+    p.root.position.set(spot.pos.x, 0, spot.pos.z); p.root.rotation.y = spot.ry; p.setState(spot.state);
+  }
 }
 const CREW_LINES = {
   kev: {
@@ -123,6 +169,16 @@ const CREW_LINES = {
     tip: () => pick(['Burn the LP and buyers relax. Keep it and RugRadar screams "not locked".', 'A short lock buys trust for a few minutes. When it expires, the LP is yours again. Everyone knows that, though.', 'Bigger pool, bigger moves needed to pump it. Smaller pool, faster chart.']),
     topics: [['tip', 'Any tips?'], ['lp', 'What\'s the LP thing?'], ['bye', 'Back to work']],
     lp: 'The pool is SOL on one side and tokens on the other. Whoever owns the LP tokens can withdraw both. Burn them and nobody can, ever. That\'s why RugRadar checks it first.',
+  },
+  zoe: {
+    intro: 'Hi! I cut your streams and posts into clips. They go out while you sleep, so you wake up with more followers.',
+    tip: () => pick(['Drama clips best. A feud with a rival is basically free content.', 'Viral posts get way more reach in a bull run.', `You're at ${fmtNum(S.followers)} followers. The penthouse landlord wants 50k.`, 'Go live on a coin that\'s already moving. Nobody watches a flat chart.']),
+    topics: [['tip', 'What should I post?'], ['bye', 'Thanks Zoe']],
+  },
+  dex: {
+    intro: 'I watch the market so you don\'t have to. Every morning you get my forecast: the next meta and where the cycle is going.',
+    tip: () => pick([`Cycle right now: ${S.cycle.phase}. ${S.cycle.phase === 'bear' ? 'Launch small, take profit early.' : S.cycle.phase === 'bull' ? 'Size up. This won\'t last.' : 'Nothing special. Follow the meta.'}`, `Tomorrow's meta: ${S.story.nextMeta || 'ask me after you sleep'}.`, 'Rival coins pull attention from the whole Trenches. Don\'t launch into a SolSamurai launch.', 'I set the sniper bot to skip known ruggers. You\'re welcome.']),
+    topics: [['tip', 'What\'s the read?'], ['bye', 'Thanks Dex']],
   },
   mo: {
     intro: 'I run the community side now. Tele chats, replies, vibes. Your posts grow faster with me around.',
@@ -148,7 +204,7 @@ function dialogTopic(t) {
   CREW[key].say(3200);
   UI.openDialog(CREW[key], text, L.topics);
 }
-BUS.addEventListener('bought', () => { WORLD.applyItems(S.owned); placeCrew(); saveGame(); });
+BUS.addEventListener('bought', () => { if (!moving) { WORLD.applyItems(S.owned); placeCrew(); } saveGame(); });
 function crewReact(type, coin) {
   if (type === 'graduated') text('Chad', `$${coin.ticker} GRADUATED!! WE'RE ON THE DEX BABY`);
   else if (type === 'koth' && chance(0.6)) text('Chad', `$${coin.ticker} is king of the hill on PumpBin 👑`);
@@ -159,7 +215,7 @@ function crewReact(type, coin) {
 
 // ---------- interactions ----------
 function interactables() {
-  const list = WORLD.interact.filter((it) => !it.need || S.owned[it.need]);
+  const list = WORLD.interact.filter((it) => !it.need || WORLD.has(it.need));
   for (const [k, p] of Object.entries(CREW)) {
     if (!p.root.visible) continue;
     const pos = new THREE.Vector3(); p.j.head.getWorldPosition(pos); pos.y -= 0.25;
@@ -182,23 +238,35 @@ function interact(it) {
     case 'whiteboard': showWhiteboard(); break;
     case 'stairs': UI.subtitle('Mom (upstairs)', pick(['Don\'t come up here unless you\'re doing the dishes!', 'Is that the bitcoin again? Your cousin has a real job.', 'Dinner was three hours ago!', 'Why is the electric bill so high?!', 'Are your friends staying over AGAIN?'])); AUDIO.sfx('knock'); break;
     case 'tv': UI.subtitle('Crypto News 24', newsHeadline()); break;
+    case 'door': UI.subtitle(...doorLine()); AUDIO.sfx('knock'); break;
     case 'rig': UI.toast('The rig earns 0.35 SOL every time you sleep.', ''); break;
     case 'talk': talkTo(it.key); break;
   }
 }
+function doorLine() {
+  const L = {
+    apartment: [['Neighbor', 'Can you keep the typing down? It\'s 4 AM.'], ['Delivery', 'Sixth pizza this week, man.'], ['Landlord', 'Rent\'s due when you sleep. Just a reminder.']],
+    hypehouse: [['Pool guy', 'Somebody threw a laptop in the pool again.'], ['Chad', 'yo there\'s a line of influencers outside'], ['Neighbor', 'Is that a podcast? At this hour?']],
+    penthouse: [['Concierge', 'Your mother called the front desk. Twice.'], ['Doorman', 'Package for you. It\'s another gold chain.'], ['Elevator', 'Ding. Nobody\'s there.']],
+  }[WORLD.locId] || [['Door', 'Nobody\'s there.']];
+  return pick(L);
+}
 function sitAtPC() {
   G.mode = 'pc'; player.unlock(); player.enabled = false; UI.prompt(null);
-  const seat = WORLD.seats.pc;
-  player.tweenTo(seat, new THREE.Vector3(WORLD.DESK.x, 1.05, WORLD.DESK.z), 0.55, () => UI.openPC());
+  player.tweenTo(WORLD.seats.pc, WORLD.deskLook, 0.55, () => UI.openPC());
 }
 function leavePC() {
   UI.closePC();
-  const back = new THREE.Vector3(WORLD.DESK.x, 1.63, WORLD.DESK.z + 1.35);
-  player.tweenTo(back, new THREE.Vector3(WORLD.DESK.x, 1.4, WORLD.DESK.z - 2), 0.45, () => {
-    player.setStand(new THREE.Vector3(back.x, 0, back.z), 0);
+  const back = WORLD.deskBack.clone();
+  player.tweenTo(back, WORLD.deskBackLook, 0.45, () => {
+    player.setStand(new THREE.Vector3(back.x, 0, back.z), WORLD.deskYaw);
     player.enabled = true; G.mode = 'walk'; player.lock();
   });
   saveGame();
+}
+function morningModal(r, title, sub) {
+  UI.modal(`<h2>${h(title)}</h2><p class="mut">${h(sub)}</p><div class="sumlist">${r.lines.map(([a, b]) => `<div><span>${h(a)}</span><b>${h(b)}</b></div>`).join('')}</div>`, [['ok', 'Get up', 'primary']], () => { $('#fade').classList.remove('on'); G.mode = 'walk'; player.lock(); });
+  placeCrew(); WORLD.applyItems(S.owned); saveGame();
 }
 function trySleep() {
   const r = sleep();
@@ -206,15 +274,24 @@ function trySleep() {
   AUDIO.sfx('sleep');
   player.unlock(); G.mode = 'modal';
   $('#fade').classList.add('on');
-  setTimeout(() => {
-    UI.modal(`<h2>Day ${S.day}</h2><p class="mut">You slept like a basement gremlin.</p><div class="sumlist">${r.lines.map(([a, b]) => `<div><span>${h(a)}</span><b>${h(b)}</b></div>`).join('')}</div>`, [['ok', 'Get up', 'primary']], () => { $('#fade').classList.remove('on'); G.mode = 'walk'; player.lock(); });
-    placeCrew(); WORLD.applyItems(S.owned); saveGame();
-  }, 700);
+  const sub = { basement: 'You slept like a basement gremlin.', apartment: 'City noise, real mattress. Not bad.', hypehouse: 'Someone was filming in the hallway at 3 AM.', penthouse: 'You woke up above the clouds.' }[S.loc];
+  setTimeout(() => morningModal(r, `Day ${S.day}`, sub), 700);
+}
+// the summit takes the whole day: fade out, come home the next morning
+function travelHome() {
+  const r = sleep();
+  if (typeof r === 'string') { G.mode = 'walk'; player.lock(); return; }
+  player.unlock(); G.mode = 'modal';
+  $('#fade').classList.add('on');
+  r.lines.unshift(['Degen Summit', 'Back from Miami']);
+  objDone('summit');
+  setTimeout(() => morningModal(r, `Day ${S.day}`, 'You flew home on a red-eye. Worth it.'), 900);
 }
 function showWhiteboard() {
   player.unlock(); G.mode = 'modal';
   UI.modal(`<h2>The Plan</h2><div class="sumlist">
-    <div><span>Objective</span><b>${h(OBJECTIVES[S.objective] || 'Done. Enjoy the penthouse.')}</b></div>
+    <div><span>Chapter ${S.chapter}</span><b>${h(CHAPTERS[S.chapter - 1].title)}</b></div>
+    ${chapterGoals().map(([k, t]) => `<div><span>${S.done[k] ? '✔' : '•'} ${h(t)}</span><b>${S.done[k] ? 'done' : ''}</b></div>`).join('')}
     <div><span>Net worth</span><b>${fmtUSD(netWorth())}</b></div>
     <div><span>Followers</span><b>${fmtNum(S.followers)} (credibility ${Math.round(S.cred * 100)}%)</b></div>
     <div><span>Coins launched</span><b>${S.stats.launched}</b></div>
@@ -224,6 +301,11 @@ function showWhiteboard() {
 }
 function newsHeadline() {
   const last = S.history[0];
+  const ce = S.story.celeb;
+  if (ce && !ce.over) return `${ce.name}'s $${ce.ticker} is the most traded coin on the chain. Analysts: "It's a celebrity coin."`;
+  if (S.cycle.phase === 'bull' && chance(0.5)) return `Bull run! SOL hits ${fmtUSD(S.solPrice)} as memecoin volume explodes.`;
+  if (S.cycle.phase === 'bear' && chance(0.5)) return `Bear market deepens. SOL slides to ${fmtUSD(S.solPrice)}. "Nobody is buying anything," says everyone.`;
+  if (S.rivals.samurai && chance(0.2)) return '@SolSamurai claims he "invented the bonding curve". Experts disagree.';
   if (last?.rugged) return `Breaking: $${last.ticker} collapses ${Math.round(90 + Math.random() * 9)}% after its creator cashed out. Holders furious.`;
   if (last?.graduated) return `$${last.ticker} graduates to the DEX as memecoin mania continues.`;
   return pick([`SOL trades at ${fmtUSD(S.solPrice)}. Analysts: "Number could go up. Or down."`, `${S.meta} coins dominate today's trending list.`, 'Survey: 97% of memecoins die within a day. The other 3% die within a week.', 'Local mom reports "strange typing noises" from basement at 4 AM.']);
@@ -278,6 +360,21 @@ function updateScreens(dt) {
     });
     m3.tex.needsUpdate = true;
   }
+  const wall = S_.wall;
+  if (wall) {
+    const ctx = wall.ctx, w = wall.canvas.width, hh = wall.canvas.height;
+    if (c) { drawChart(ctx, c, w * 0.62, hh, { max: 70 }); } else { ctx.fillStyle = '#0d0a14'; ctx.fillRect(0, 0, w * 0.62, hh); }
+    ctx.fillStyle = '#0b0d12'; ctx.fillRect(w * 0.62, 0, w * 0.38, hh);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#ffb547'; ctx.font = '400 34px Bungee, Impact, sans-serif'; ctx.fillText('RUGGED HOUSE', w * 0.65, 22);
+    ctx.fillStyle = '#e8edf4'; ctx.font = '700 26px Manrope, sans-serif';
+    ctx.fillText(`${fmtNum(S.followers)} followers`, w * 0.65, 92);
+    ctx.fillText(c ? `$${c.ticker} ${fmtUSD(c.mcapSol() * S.solPrice, { compact: true })}` : 'No coin live', w * 0.65, 132);
+    ctx.fillStyle = S.cycle.phase === 'bull' ? '#1fd18a' : S.cycle.phase === 'bear' ? '#ff4d61' : '#a3adbd'; ctx.font = '600 22px "JetBrains Mono", monospace';
+    ctx.fillText(S.cycle.phase === 'bull' ? 'BULL RUN' : S.cycle.phase === 'bear' ? 'BEAR MARKET' : `META: ${S.meta}`, w * 0.65, 186);
+    ctx.fillStyle = '#a3adbd'; ctx.fillText(`SOL ${fmtUSD(S.solPrice)}`, w * 0.65, 226);
+    wall.tex.needsUpdate = true;
+  }
   const tv = S_.tv;
   if (tv && WORLD.items.couchTV.visible) {
     const ctx = tv.ctx, w = tv.canvas.width, hh = tv.canvas.height;
@@ -292,20 +389,21 @@ function updateScreens(dt) {
     tv.tex.needsUpdate = true;
   }
   const wb = S_.whiteboard;
-  const sig = [S.objective, S.stats.rugs, S.stats.graduated, S.stats.launched, Math.round(S.followers / 50)].join();
+  const sig = [S.chapter, Object.keys(S.done).length, S.stats.rugs, S.stats.graduated, S.stats.launched, Math.round(S.followers / 50)].join();
   if (wb && wb.sig !== sig) {
     wb.sig = sig;
     const ctx = wb.ctx, w = wb.canvas.width, hh = wb.canvas.height;
     ctx.fillStyle = '#f4f4f0'; ctx.fillRect(0, 0, w, hh);
     ctx.strokeStyle = 'rgba(120,130,150,0.15)'; for (let i = 0; i < 12; i++) { ctx.beginPath(); ctx.moveTo(Math.random() * w, Math.random() * hh); ctx.lineTo(Math.random() * w, Math.random() * hh); ctx.stroke(); }
     ctx.font = 'bold 64px "Comic Sans MS", "Marker Felt", cursive'; ctx.fillStyle = '#1b3fa0'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText('THE PLAN', 40, 30);
-    ctx.font = '36px "Comic Sans MS", "Marker Felt", cursive';
-    const lines = OBJECTIVES.slice(Math.max(0, S.objective - 2), S.objective + 4);
-    lines.forEach((l, i) => {
-      const idx = Math.max(0, S.objective - 2) + i, done = idx < S.objective;
-      ctx.fillStyle = done ? '#2c8a3c' : idx === S.objective ? '#c0202f' : '#333';
-      ctx.fillText(`${done ? '✔' : idx === S.objective ? '→' : '•'} ${l.slice(0, 40)}`, 40, 130 + i * 70);
+    ctx.fillText(`CH.${S.chapter} PLAN`, 40, 30);
+    ctx.font = '34px "Comic Sans MS", "Marker Felt", cursive';
+    const goals = chapterGoals(), cur = currentGoal().idx;
+    const from = Math.max(0, Math.min(cur - 2, goals.length - 7));
+    goals.slice(from, from + 7).forEach(([k, l], i) => {
+      const idx = from + i, done = !!S.done[k];
+      ctx.fillStyle = done ? '#2c8a3c' : idx === cur ? '#c0202f' : '#333';
+      ctx.fillText(`${done ? '✔' : idx === cur ? '→' : '•'} ${l.slice(0, 42)}`, 40, 120 + i * 72);
     });
     ctx.fillStyle = '#c0202f'; ctx.font = 'bold 40px "Comic Sans MS", cursive';
     ctx.fillText(`followers: ${fmtNum(S.followers)}`, 600, 40);
@@ -327,11 +425,18 @@ function showTitle() {
     <p class="tag">A memecoin game set in your mom's basement.</p>
     <div class="menu-btns">
       ${cont ? '<button class="btn primary big" data-m="continue">Continue</button>' : ''}
-      <button class="btn ${cont ? '' : 'primary'} big" data-m="new">New game</button>
+      <button class="btn ${cont ? '' : 'primary'} big" data-m="newpick">New game</button>
       <button class="btn" data-m="settings">Settings</button>
       <button class="btn" data-m="controls">Controls</button>
     </div>
     <p class="fine">Satire. Not financial advice. No real coins were harmed.</p></div>`;
+}
+function showModePick() {
+  const cont = hasSave();
+  $('#menu').innerHTML = `<div class="title-wrap small"><h2>New game</h2>${cont ? '<p class="mut" style="margin:0">This replaces your current save.</p>' : ''}
+    <div class="mode-pick"><button data-m="new" data-mode="story"><b>Story</b><span>Four chapters from Mom's basement to the penthouse. Rivals, market cycles, a conference trip, and four endings.</span></button>
+    <button data-m="new" data-mode="sandbox"><b>Sandbox</b><span>Same world, random events, no finale. Play forever.</span></button></div>
+    <div class="menu-btns"><button class="btn ghost" data-m="title">Back</button></div></div>`;
 }
 function showPause() {
   if (G.mode !== 'walk' || !G.started) return;
@@ -361,8 +466,13 @@ function showControls(back) {
     : '<div><span>Move</span><b>WASD / arrows (Shift to run)</b></div><div><span>Look</span><b>Mouse</b></div><div><span>Use / talk</span><b>E or click</b></div><div><span>Phone</span><b>Tab or Q</b></div><div><span>Leave PC / pause</span><b>Esc</b></div>'}
     </div><div class="menu-btns"><button class="btn primary" data-m="${back}">Back</button></div></div>`;
 }
-function startPlaying(isNew) {
+async function startPlaying(isNew) {
   $('#menu').hidden = true;
+  if (WORLD.locId !== S.loc) {
+    $('#loading').hidden = false; setLoading(`Heading to ${LOCS[S.loc].name}…`, 60); await nextFrame();
+    await rebuildWorld(S.loc);
+    $('#loading').hidden = true;
+  }
   AUDIO.init(); AUDIO.setVolume(SET.volume);
   MUSIC.vol = SET.music;
   if (!MUSIC.on && SET.music > 0) { MUSIC.play(MUSIC.idx, MUSIC.pausedAt); MUSIC.setVolume(SET.music); }
@@ -371,20 +481,20 @@ function startPlaying(isNew) {
   UI.updateObjective(); UI.updateHUD();
   G.paused = false; G.started = true; G.mode = 'walk';
   if (isNew) {
-    player.setStand(new THREE.Vector3(-0.4, 0, -0.9), Math.PI * 0.92);
+    const [sx, sz, yaw] = WORLD.loc.spawn;
+    player.setStand(new THREE.Vector3(sx, 0, sz), yaw);
     G.mode = 'modal';
-    UI.modal(`<h2>3:07 AM</h2><p>Mom's basement. <b>0.3 SOL</b> and <b>$25</b> to your name. 40 followers, and twelve of them are bots.</p><p>Chad keeps texting about memecoins. Launch them, post about them, grow an audience, and trade other devs' coins in the Trenches. Run them honestly and earn fees, or rug them and watch your followers walk.</p><p class="mut">Start at the PC on the north wall. Press Tab for your phone.</p>`, [['go', 'Let\'s get it', 'primary']], () => { G.mode = 'walk'; player.lock(); });
+    if (S.mode === 'story') chapterCard(1);
+    setTimeout(() => UI.modal(`<h2>3:07 AM</h2><p>Mom's basement. <b>0.3 SOL</b> and <b>$25</b> to your name. 40 followers, and twelve of them are bots.</p><p>Chad keeps texting about memecoins. Launch them, post about them, grow an audience, and trade other devs' coins in the Trenches. Run them honestly and earn fees, or rug them and watch your followers walk.</p><p>${S.mode === 'story' ? 'Make enough to move out: a studio, then a hype house, then the penthouse. Rivals will notice you on the way up.' : 'Sandbox: no finale, random events, play as long as you want.'}</p><p class="mut">Start at the PC on the north wall. Press Tab for your phone.</p>`, [['go', 'Let\'s get it', 'primary']], () => { G.mode = 'walk'; player.lock(); }), S.mode === 'story' ? 3800 : 0);
   } else player.lock();
 }
 function onMenuClick(e) {
   const b = e.target.closest('[data-m]'); if (!b) return;
   AUDIO.init(); AUDIO.sfx('click');
   const a = b.dataset.m;
-  if (a === 'continue') { if (loadGame()) startPlaying(false); else { newGame(); startPlaying(true); } }
-  else if (a === 'new') {
-    if (hasSave() && !b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Overwrite your save? Click again'; return; }
-    wipeSave(); newGame(); UI.draft = UI.newDraft(); startPlaying(true);
-  }
+  if (a === 'continue') { if (loadGame()) startPlaying(false); else { newGame('story'); startPlaying(true); } }
+  else if (a === 'newpick') showModePick();
+  else if (a === 'new') { wipeSave(); newGame(b.dataset.mode || 'story'); UI.draft = UI.newDraft(); startPlaying(true); }
   else if (a === 'settings') showSettings(G.started ? 'pause' : 'title');
   else if (a === 'controls') showControls(G.started ? 'pause' : 'title');
   else if (a === 'title') showTitle();
@@ -392,18 +502,57 @@ function onMenuClick(e) {
   else if (a === 'resume') { $('#menu').hidden = true; G.paused = false; G.mode = 'walk'; player.lock(); }
   else if (a === 'quit') { saveGame(); G.started = false; showTitle(); }
 }
-BUS.addEventListener('ending', () => {
+BUS.addEventListener('ending', (e) => {
   saveGame();
+  const kind = e.detail.kind, E = ENDINGS[kind];
   setTimeout(() => {
-    UI.closePC(); player.unlock(); G.mode = 'modal';
+    UI.closePC(); if (UI.phoneOpen) UI.togglePhone(false);
+    player.unlock(); G.mode = 'modal'; player.enabled = true;
     const st = S.stats;
-    UI.modal(`<div class="ending"><p class="kicker">Day ${S.day}</p><h2>You moved out.</h2><p>From 0.3 SOL in a basement to a penthouse.</p><div class="sumlist">
-      <div><span>Coins launched</span><b>${st.launched}</b></div><div><span>Graduated</span><b>${st.graduated}</b></div><div><span>Ran clean</span><b>${st.legit}</b></div>
-      <div><span>Rugs</span><b>${st.rugs}</b></div><div><span>Bagholders left behind</span><b>${fmtNum(st.victims)}</b></div><div><span>Their losses</span><b>${fmtUSD(st.victimLossSol * S.solPrice)}</b></div>
-      <div><span>Creator fees</span><b>${fmtSOL(st.feesSol)} SOL</b></div><div><span>Followers</span><b>${fmtNum(S.followers)}</b></div></div>
-      <p class="mut">${st.rugs === 0 ? 'And you never rugged anyone. Chad is weirdly proud.' : st.rugs > st.legit ? 'Mom still thinks you work in "liquidity".' : 'Some of your holders even made money.'}</p></div>`, [['new', 'New game', 'primary']], () => { wipeSave(); newGame(); startPlaying(true); });
-  }, 600);
+    const body = {
+      legend: 'You burned the LP and walked away. The coin outlived the hype, and so did your name. Kids in the Trenches call clean launches "pulling a @' + S.handle + '".',
+      villain: 'You pulled the biggest rug of the cycle. You\'re rich, you\'re blocked by half the timeline, and the thread about you has four million views.',
+      influencer: 'You stopped launching and started getting paid to post. Brands DM you now. So do your old bagholders.',
+      quiet: 'You closed the laptop, cashed out, and called Mom. She asked if you\'re eating vegetables. You said yes. You weren\'t.',
+    }[kind];
+    UI.modal(`<div class="ending"><div class="big-ic">${E.icon}</div><p class="kicker">Day ${S.day} · Ending</p><h2>${h(E.title)}</h2><p><b>${h(E.tag)}</b> ${h(body)}</p>
+      <div class="sumlist"><div><span>Net worth</span><b>${fmtUSD(netWorth())}</b></div><div><span>Followers</span><b>${fmtNum(S.followers)}</b></div><div><span>Coins launched</span><b>${st.launched}</b></div><div><span>Graduated</span><b>${st.graduated}</b></div><div><span>Ran clean</span><b>${st.legit}</b></div><div><span>Rugs</span><b>${st.rugs}</b></div><div><span>Creator fees</span><b>${fmtSOL(st.feesSol)} SOL</b></div></div>
+      <ul class="epi">${epilogue(kind).map((l) => `<li>${h(l)}</li>`).join('')}</ul></div>`,
+    [['sandbox', 'Keep playing (sandbox)', ''], ['new', 'New game', 'primary']], (id) => {
+      if (id === 'sandbox') { S.mode = 'sandbox'; S.ended = null; saveGame(); G.mode = 'walk'; UI.updateObjective(); player.lock(); }
+      else { wipeSave(); showModePick(); G.started = false; G.paused = true; G.mode = 'menu'; $('#menu').hidden = false; document.body.classList.remove('playing'); }
+    });
+  }, 1200);
 });
+
+// ---------- story events ----------
+let evOpen = false;
+function presentEvents() {
+  if (evOpen || moving || !G.started || G.paused) return;
+  if (G.mode !== 'walk' && G.mode !== 'pc') return;
+  if (!$('#modal').hidden || player.tween) return;
+  const ev = nextEvent(); if (!ev) return;
+  evOpen = true;
+  const prev = G.mode;
+  if (prev === 'walk') { player.unlock(); G.mode = 'modal'; }
+  AUDIO.sfx(ev.finale ? 'launch' : 'notify');
+  UI.eventModal(ev, (choice) => {
+    let r = null;
+    try { r = choice.fx(); } catch (err) { console.error(err); }
+    const res = typeof r === 'string' ? { text: r } : r || {};
+    if (res.next) queueEvent(res.next[0], res.next[1] ?? null, true);
+    const finish = () => {
+      evOpen = false;
+      UI.updateHUD(); UI.updateObjective();
+      if (UI.pcOpen) UI.renderAppKeep();
+      if (res.after) { res.after(); return; }
+      if (S.ended) return;
+      if (prev === 'walk' && !res.next) { G.mode = 'walk'; player.lock(); } else if (prev === 'walk') G.mode = 'walk';
+    };
+    if (res.text) UI.modal(`<p>${h(res.text)}</p>`, [['ok', 'OK', 'primary']], finish);
+    else finish();
+  });
+}
 
 // ---------- input ----------
 function bindInput() {
@@ -462,6 +611,7 @@ function loop(now) {
     UI.live();
     saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); }
     AUDIO.updateFan(Math.hypot(camera.position.x - WORLD.DESK.x, camera.position.z - WORLD.DESK.z));
+    if (G.frame % 20 === 0) presentEvents();
   }
   if (!S || !WORLD) return;
   // crew + world animate even in menus; skip heavy 3D while the PC covers the screen
@@ -490,5 +640,6 @@ function loop(now) {
 // test hook (only with #debug in the URL)
 if (location.hash.includes('debug')) {
   window.__rug = { get S() { return S; }, get LIVE() { return LIVE; }, get ECO() { return ECO; }, get G() { return G; }, UI, MUSIC, tradeBuy, devBuyMore, spawnNpcCoin, CREW, sitAtPC, leavePC, interact, launchCoin, postChirp, devSell, closeCoin, gameTick, cashOut, buyItem, trySleep, placeCrew,
+    rebuildWorld, moveHome, queueEvent, nextEvent, storyTick, startCeleb, activateRival, endGame, LOCS, travelHome, presentEvents, newGame, startPlaying, saveGame, loadGame,
     player: () => player, camera: () => camera, world: () => WORLD };
 }

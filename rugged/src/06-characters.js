@@ -573,5 +573,7 @@ class Person {
 const CREW_SPECS = {
   chad: { name: 'Chad', role: 'Hype man', skin: 0xe2b08f, hair: 0x5a3a22, hairStyle: 'short', eyes: 0x3d6b4a, top: 0xc3283e, accent: 0xffc34a, pants: 0x3a4f75, shoes: 0xf4f4f0, hat: 'cap', hatColor: 0x1d1d22, chain: true, stubble: true, phone: true, logo: 'SEND IT', logoColor: '#ffe9a8', build: 1.06 },
   kev: { name: 'Kev', role: 'Coder', skin: 0xb98563, hair: 0x1a1412, hairStyle: 'curly', eyes: 0x3b2516, top: 0x3c4148, accent: 0x38e08c, pants: 0x262a33, shoes: 0x2b2b2b, glasses: true, headphones: true, build: 0.95 },
+  zoe: { name: 'Zoe', role: 'Clip editor', skin: 0xf0c4a4, hair: 0x2a1a3a, hairStyle: 'messy', eyes: 0x4a5a7a, top: 0x2b2f48, accent: 0xff8ab0, pants: 0x1e2230, shoes: 0xf4f4f0, hat: 'beanie', hatColor: 0xd85a7a, freckles: true, build: 0.9 },
+  dex: { name: 'Dex', role: 'Analyst', skin: 0xc89a78, hair: 0x2a1c14, hairStyle: 'short', eyes: 0x3a2a1a, top: 0xe8e6e0, accent: 0x40ffb0, pants: 0x2a3140, shoes: 0x3a2a22, glasses: true, watch: true, stubble: true, build: 1.0 },
   mo: { name: 'Mo', role: 'Community manager', skin: 0x8a5a3c, hair: 0x120d0b, hairStyle: 'buzz', eyes: 0x24160e, top: 0x1f3b2e, accent: 0x9ad18b, pants: 0x4a4038, shoes: 0x6b4a32, beard: true, cash: true, watch: true, build: 1.0 },
 };

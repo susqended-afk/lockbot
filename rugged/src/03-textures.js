@@ -343,6 +343,105 @@ function genRug(S) {
   }, { strength: 2 });
 }
 
+// ---------- surfaces for the new places ----------
+// Polished marble slabs (penthouse). Integer frequencies keep it tileable.
+function genMarble(S, opts = {}) {
+  const N = ValueNoise(opts.seed || 171), N2 = ValueNoise((opts.seed || 171) + 7);
+  const base = opts.base || [238, 235, 230], vein = opts.vein || [128, 124, 126];
+  const tiles = opts.tiles || 2;
+  return genTexture(S, S, (u, v, x, y, o) => {
+    const t = N.fbm(u, v, 3, 5);
+    const w = Math.abs(Math.sin((u * 2 + v * 1 + t * 3.2) * Math.PI));
+    const f = Math.abs(Math.sin((u * 5 - v * 3 + N2.fbm(u, v, 6, 4) * 5) * Math.PI));
+    const k = clamp(smooth(0.9, 1.0, 1 - w) * 0.85 + smooth(0.96, 1.0, 1 - f) * 0.35, 0, 1);
+    const cloud = (N2.fbm(u, v, 4, 4) - 0.5) * 0.1;
+    const tu = (u * tiles) % 1, tv = (v * tiles) % 1;
+    const seam = (tu < 0.0025 || tv < 0.0025) ? 1 : 0;
+    for (let i = 0; i < 3; i++) o[i] = clamp(lerp(base[i] * (1 + cloud), vein[i], k) - seam * 55, 0, 255);
+    o[3] = -seam * 0.6 + k * 0.05; o[4] = 0.1 + k * 0.12 + seam * 0.4;
+  }, { strength: 1.2, rough: true });
+}
+// Smooth painted drywall
+function genPlaster(S, base = [222, 216, 206]) {
+  const N = ValueNoise(181);
+  return genTexture(S, S, (u, v, x, y, o) => {
+    const n = N.fbm(u, v, 16, 4), m = N.fbm(u, v, 3, 3);
+    const b = 0.97 + (n - 0.5) * 0.04 + (m - 0.5) * 0.04;
+    o[0] = base[0] * b; o[1] = base[1] * b; o[2] = base[2] * b; o[3] = n * 0.25; o[4] = 0.8 + (n - 0.5) * 0.1;
+  }, { strength: 0.8, rough: true });
+}
+// Polished, sealed concrete (hype house)
+function genPolishedConcrete(S) {
+  const N = ValueNoise(191), N2 = ValueNoise(192);
+  return genTexture(S, S, (u, v, x, y, o) => {
+    const n = N.fbm(u, v, 4, 6), agg = N2.fbm(u, v, 48, 2);
+    const speck = agg > 0.68 ? 0.08 : agg < 0.3 ? -0.05 : 0;
+    const tu = (u * 2) % 1, tv = (v * 2) % 1;
+    const cut = (tu < 0.002 || tv < 0.002) ? 1 : 0;
+    const b = 0.78 + (n - 0.5) * 0.18 + speck - cut * 0.3;
+    o[0] = clamp(178 * b, 0, 255); o[1] = clamp(176 * b, 0, 255); o[2] = clamp(172 * b, 0, 255);
+    o[3] = -cut * 0.8 + agg * 0.05; o[4] = 0.22 + (n - 0.5) * 0.15 + cut * 0.4;
+  }, { strength: 1, rough: true });
+}
+
+// ---------- window views (painted backdrops behind the glass) ----------
+function drawCityView(mode, W = 2048, H = 900) {
+  const cv = newCanvas(W, H), c = cv.getContext('2d');
+  const rnd = mulberry32(mode === 'high' ? 77 : mode === 'yard' ? 55 : 33);
+  const R = (a, b) => a + rnd() * (b - a);
+  const horizon = mode === 'high' ? H * 0.62 : mode === 'yard' ? H * 0.7 : H * 0.92;
+  const sky = c.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, '#05070f'); sky.addColorStop(0.55, '#0e1430'); sky.addColorStop(0.85, '#2a2346'); sky.addColorStop(1, '#5a3550');
+  c.fillStyle = sky; c.fillRect(0, 0, W, H);
+  for (let i = 0; i < 160; i++) { c.fillStyle = `rgba(255,255,255,${R(0.15, 0.6)})`; c.fillRect(R(0, W), R(0, horizon * 0.6), 1.5, 1.5); }
+  // moon
+  c.fillStyle = 'rgba(255,244,220,0.9)'; c.beginPath(); c.arc(W * 0.78, H * 0.16, 26, 0, 7); c.fill();
+  const glow = c.createRadialGradient(W * 0.78, H * 0.16, 20, W * 0.78, H * 0.16, 140); glow.addColorStop(0, 'rgba(255,240,210,0.25)'); glow.addColorStop(1, 'rgba(255,240,210,0)');
+  c.fillStyle = glow; c.fillRect(0, 0, W, H);
+  const windows = (x, y, w, h, lit, cw = 6, ch = 8, gx = 5, gy = 7) => {
+    for (let yy = y + gy; yy < y + h - ch; yy += ch + gy) for (let xx = x + gx; xx < x + w - cw; xx += cw + gx) {
+      if (rnd() > lit) continue;
+      const warm = rnd() < 0.75;
+      c.fillStyle = warm ? `rgba(255,${Math.round(R(190, 225))},${Math.round(R(120, 160))},${R(0.55, 0.95)})` : `rgba(${Math.round(R(150, 200))},${Math.round(R(200, 230))},255,${R(0.5, 0.9)})`;
+      c.fillRect(xx, yy, cw, ch);
+    }
+  };
+  const layer = (n, minH, maxH, base, color, lit, scale) => {
+    let x = -20;
+    while (x < W) {
+      const w = R(40, 140) * scale, h = R(minH, maxH);
+      c.fillStyle = color; c.fillRect(x, base - h, w, h);
+      if (rnd() < 0.25) { c.fillRect(x + w * 0.4, base - h - R(10, 40) * scale, w * 0.2, R(10, 40) * scale); }
+      windows(x, base - h, w, h, lit, 4 * scale, 6 * scale, 4 * scale, 5 * scale);
+      if (rnd() < 0.12) { c.fillStyle = '#ff3a3a'; c.fillRect(x + w / 2 - 2, base - h - 4, 4, 4); }
+      x += w + R(2, 18) * scale;
+    }
+  };
+  if (mode === 'yard') {
+    // hills with house lights, a fence line
+    c.fillStyle = '#0a0d18';
+    c.beginPath(); c.moveTo(0, horizon); for (let x = 0; x <= W; x += 40) c.lineTo(x, horizon - 70 - Math.sin(x / 260) * 40 - Math.sin(x / 90) * 10); c.lineTo(W, H); c.lineTo(0, H); c.fill();
+    for (let i = 0; i < 120; i++) { c.fillStyle = `rgba(255,${Math.round(R(190, 230))},140,${R(0.4, 0.9)})`; const x = R(0, W); c.fillRect(x, horizon - R(0, 90) + Math.sin(x / 260) * 10, 2, 2); }
+    c.fillStyle = '#05060a'; c.fillRect(0, horizon - 10, W, H);
+    return cv;
+  }
+  if (mode === 'high') {
+    layer(0, 40, 160, horizon, '#0b0e1c', 0.25, 0.6);
+    layer(0, 80, 260, horizon + 30, '#090b16', 0.35, 0.9);
+    // city floor far below: streets of light
+    const g = c.createLinearGradient(0, horizon, 0, H); g.addColorStop(0, '#120f1c'); g.addColorStop(1, '#06060a');
+    c.fillStyle = g; c.fillRect(0, horizon + 30, W, H);
+    for (let i = 0; i < 900; i++) { const y = R(horizon + 32, H); const k = (y - horizon) / (H - horizon); c.fillStyle = rnd() < 0.8 ? `rgba(255,${Math.round(R(170, 220))},120,${R(0.4, 0.9)})` : 'rgba(150,200,255,0.7)'; c.fillRect(R(0, W), y, 1 + k * 3, 1 + k * 2); }
+    for (let i = 0; i < 6; i++) { const y = R(horizon + 60, H); c.strokeStyle = 'rgba(255,200,120,0.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, y); c.lineTo(W, y + R(-80, 80)); c.stroke(); }
+    return cv;
+  }
+  // street level: tall buildings close up, streetlights at the bottom
+  layer(0, 200, 520, horizon, '#0c0f1d', 0.3, 1.0);
+  layer(0, 260, 760, H, '#080a13', 0.4, 1.6);
+  for (let i = 0; i < 9; i++) { const x = R(0, W); const g = c.createRadialGradient(x, H - 30, 2, x, H - 30, 70); g.addColorStop(0, 'rgba(255,200,120,0.6)'); g.addColorStop(1, 'rgba(255,200,120,0)'); c.fillStyle = g; c.fillRect(x - 70, H - 100, 140, 100); }
+  return cv;
+}
+
 // ---------- 2D art: meme coin icons (also used by the UI) ----------
 // ---------- coin logos from Fluent 3D emoji (MIT, Microsoft) ----------
 const EMOJI = {};

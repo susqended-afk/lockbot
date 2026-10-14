@@ -15,16 +15,16 @@ const ITEMS = [
   // supplies
   { id: 'drinks', name: 'VOLT 6-pack', price: 18, cat: 'Supplies', consumable: true, icon: 'can', desc: 'Six energy drinks for the fridge. Each restores 35 energy.' },
   { id: 'pizza', name: 'Large pizza', price: 30, cat: 'Supplies', consumable: true, icon: 'pizza', desc: 'Delivered to the basement door. +60 energy right now.' },
-  // basement
-  { id: 'rug', name: 'An actual rug', price: 90, cat: 'Basement', icon: 'rug', desc: 'Ties the room together.' },
-  { id: 'posters', name: 'Poster pack', price: 60, cat: 'Basement', icon: 'poster', desc: 'Frog, chart, Lambo and WAGMI posters.' },
-  { id: 'ledStrip', name: 'LED strip', price: 75, cat: 'Basement', icon: 'bulb', desc: 'Purple glow over the desk. +5% post reach.' },
-  { id: 'lavaLamp', name: 'Lava lamp', price: 55, cat: 'Basement', icon: 'lamp', desc: 'Pure focus. Cosmetic.' },
-  { id: 'neon', name: 'RUGGED neon sign', price: 750, cat: 'Basement', icon: 'sign', desc: 'Every empire needs a logo.' },
-  { id: 'aquarium', name: 'Reef aquarium', price: 2200, cat: 'Basement', icon: 'fish', desc: 'Calming. +10 max energy.' },
-  { id: 'couchTV', name: 'Couch + TV', price: 2600, cat: 'Basement', icon: 'tv', desc: 'Velvet couch and a TV running crypto news.' },
-  { id: 'arcade', name: 'Arcade cabinet', price: 4500, cat: 'Basement', icon: 'joystick', desc: 'RUG RUNNER. Cosmetic.' },
-  { id: 'vending', name: 'Vending machine', price: 6000, cat: 'Basement', icon: 'vend', desc: 'Unlimited free energy drinks. The fridge is retired.' },
+  // decor (moves with you)
+  { id: 'rug', name: 'An actual rug', price: 90, cat: 'Decor', icon: 'rug', desc: 'Ties the room together.' },
+  { id: 'posters', name: 'Poster pack', price: 60, cat: 'Decor', icon: 'poster', desc: 'Frog, chart, Lambo and WAGMI posters.' },
+  { id: 'ledStrip', name: 'LED strip', price: 75, cat: 'Decor', icon: 'bulb', desc: 'Purple glow over the desk. +5% post reach.' },
+  { id: 'lavaLamp', name: 'Lava lamp', price: 55, cat: 'Decor', icon: 'lamp', desc: 'Pure focus. Cosmetic.' },
+  { id: 'neon', name: 'RUGGED neon sign', price: 750, cat: 'Decor', icon: 'sign', desc: 'Every empire needs a logo.' },
+  { id: 'aquarium', name: 'Reef aquarium', price: 2200, cat: 'Decor', icon: 'fish', desc: 'Calming. +10 max energy.' },
+  { id: 'couchTV', name: 'Couch + TV', price: 2600, cat: 'Decor', icon: 'tv', desc: 'Velvet couch and a TV running crypto news.' },
+  { id: 'arcade', name: 'Arcade cabinet', price: 4500, cat: 'Decor', icon: 'joystick', desc: 'RUG RUNNER. Cosmetic.' },
+  { id: 'vending', name: 'Vending machine', price: 6000, cat: 'Decor', icon: 'vend', desc: 'Unlimited free energy drinks. The fridge is retired.' },
   // setup
   { id: 'mechKeyboard', name: 'RGB mechanical keyboard', price: 220, cat: 'Setup', icon: 'keyboard', desc: 'Posts cost 2 less energy.' },
   { id: 'gamingChair', name: 'Gaming chair', price: 420, cat: 'Setup', icon: 'chair', desc: '+20 max energy.' },
@@ -38,11 +38,14 @@ const ITEMS = [
   { id: 'stream', name: 'Streaming setup', price: 7500, cat: 'Setup', icon: 'camera', desc: 'Go live once per coin: a huge burst of attention.' },
   { id: 'sniper', name: 'Sniper bot', price: 9000, cat: 'Setup', icon: 'target', desc: 'Auto-buys new Trenches launches in the first block. Some will be rugs.' },
   { id: 'serverRack', name: 'Analytics server', price: 60000, cat: 'Setup', icon: 'server', desc: 'Reveals virality before launch and each Trenches dev\'s type.' },
+  { id: 'coldWallet', name: 'Hardware wallet', price: 400, cat: 'Setup', icon: 'shield', desc: 'Every signature needs a button press. Phishing links can\'t drain you.' },
   // crew & contacts
   { id: 'burner', name: 'Second phone', price: 900, cat: 'Crew', icon: 'phone', desc: 'Unlocks tier-2 KOLs.' },
   { id: 'kev', name: 'Hire Kev (coder)', price: 12000, cat: 'Crew', icon: 'code', desc: 'Custom tokens: you seed and control the liquidity pool.' },
   { id: 'mo', name: 'Hire Mo (community)', price: 25000, cat: 'Crew', icon: 'users', desc: '+25% followers from posts. Your chats panic less.' },
   { id: 'rolodex', name: 'KOL rolodex', price: 40000, cat: 'Crew', icon: 'book', desc: 'Unlocks tier-3 mega influencers.', req: 'burner' },
+  { id: 'zoe', name: 'Hire Zoe (clip editor)', price: 60000, cat: 'Crew', icon: 'camera', desc: '+15% post reach. Posts clips overnight: +3% followers every morning.', req: 'hypehouse' },
+  { id: 'dex', name: 'Hire Dex (analyst)', price: 90000, cat: 'Crew', icon: 'chart', desc: 'Forecasts tomorrow\'s market cycle and meta. Your sniper bot skips known ruggers.', req: 'hypehouse' },
   // mom
   { id: 'momCar', name: 'Pay off Mom\'s car', price: 15000, cat: 'Mom', icon: 'car', desc: 'No more grocery money. Mom is suspicious but grateful.' },
   { id: 'momKitchen', name: 'Mom\'s kitchen remodel', price: 40000, cat: 'Mom', icon: 'chef', desc: 'She sends food down: +40 bonus energy every morning.' },
@@ -53,8 +56,12 @@ const ITEMS = [
   { id: 'statue', name: 'Diamond hands statue', price: 50000, cat: 'Flex', icon: 'diamond', desc: '+10% credibility, permanently.' },
   { id: 'toilet', name: 'Golden toilet', price: 75000, cat: 'Flex', icon: 'crown', desc: 'In the corner. Content. +5% followers per post.' },
   { id: 'lambo', name: 'Lamborghini', price: 300000, cat: 'Flex', icon: 'car', desc: 'Parked on Mom\'s lawn. +10% post reach. Mom is furious.' },
-  { id: 'penthouse', name: 'Penthouse (move out)', price: 1000000, cat: 'Flex', icon: 'building', desc: 'Leave the basement for good. Ends the game.' },
+  // real estate: each one is a new place to live (and a new chapter)
+  { id: 'apartment', name: 'Studio apartment', price: 25000, cat: 'Real estate', icon: 'home', follows: 1000, desc: 'Move out of Mom\'s basement. +1 coin slot, +20 max energy, +10% reach. Rent $150 a day.' },
+  { id: 'hypehouse', name: 'The Hype House', price: 250000, cat: 'Real estate', icon: 'users', follows: 10000, req: 'apartment', desc: 'Pool, glass wall, desks for the crew. +1 coin slot, +25% followers per post. Rent $1,500 a day.' },
+  { id: 'penthouse', name: 'The Penthouse', price: 1000000, cat: 'Real estate', icon: 'building', follows: 50000, req: 'hypehouse', desc: 'Forty floors up. +20% reach, +30 max energy. Rent $5,000 a day. Starts the final chapter.' },
 ];
+const HOMES = { basement: { rent: 0 }, apartment: { rent: 150 }, hypehouse: { rent: 1500 }, penthouse: { rent: 5000 } };
 const ITEM = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 
 const KOLS = [
@@ -96,9 +103,10 @@ function newGameState() {
     drinks: 2,
     owned: {},
     history: [],
-    stats: { launched: 0, rugs: 0, legit: 0, graduated: 0, extractedSol: 0, feesSol: 0, victims: 0, victimLossSol: 0, bestRug: 0, peakMcap: 0, tweets: 0, cashedOut: 0, trades: 0, tradePnl: 0, gotRugged: 0, lives: 0 },
+    stats: { launched: 0, rugs: 0, legit: 0, graduated: 0, extractedSol: 0, feesSol: 0, victims: 0, victimLossSol: 0, bestRug: 0, peakMcap: 0, tweets: 0, cashedOut: 0, trades: 0, tradePnl: 0, gotRugged: 0, lives: 0, hackedSol: 0, listings: 0, summits: 0 },
     solPrice: 150, sentiment: 1, meta: pick(METAS),
-    objective: 0, flags: {}, posts: [], feed: [], texts: [], unread: 0,
+    mode: 'story', loc: 'basement', chapter: 1, chapterDay: 1, done: {}, flags: {}, posts: [], feed: [], texts: [], unread: 0,
+    cycle: { phase: 'normal', days: 0, forced: null }, rivals: {}, karma: { good: 0, bad: 0 }, story: {}, boosts: {},
     snipe: { on: false, sol: 0.1 },
     netHist: [], log: [], ended: null,
   };
@@ -106,8 +114,8 @@ function newGameState() {
 
 const allCoins = () => LIVE.concat(ECO);
 const isMine = (c) => !!c && LIVE.includes(c);
-const maxCoins = () => 1 + (S.owned.monitor2 ? 1 : 0) + (S.owned.monitor3 ? 1 : 0);
-const staminaMax = () => 100 + (S.owned.gamingChair ? 20 : 0) + (S.owned.bed ? 30 : 0) + (S.owned.aquarium ? 10 : 0);
+const maxCoins = () => 1 + (S.owned.monitor2 ? 1 : 0) + (S.owned.monitor3 ? 1 : 0) + (S.owned.apartment ? 1 : 0) + (S.owned.hypehouse ? 1 : 0);
+const staminaMax = () => 100 + (S.owned.gamingChair ? 20 : 0) + (S.owned.bed ? 30 : 0) + (S.owned.aquarium ? 10 : 0) + (S.owned.apartment ? 20 : 0) + (S.owned.penthouse ? 30 : 0);
 const usd = (sol) => sol * S.solPrice;
 const positionValue = (c) => { const y = c.you(); return y && y.tokens > 0 ? c.quoteSell(y.tokens) : 0; };
 const netWorth = () => S.cash + usd(S.sol) + LIVE.reduce((a, c) => a + usd(c.quoteSell(c.devTokens()) + c.creatorFees - c.feesClaimed), 0) + ECO.reduce((a, c) => a + usd(positionValue(c)), 0);
@@ -118,11 +126,11 @@ function shillPower() {
   let p = 0.06 + 0.3 * Math.pow(S.followers / 1000, 0.45);
   p *= S.cred;
   const o = S.owned;
-  p *= 1 + (o.ringLight ? 0.3 : 0) + (o.ledStrip ? 0.05 : 0) + (o.chain ? 0.03 : 0) + (o.rolex ? 0.03 : 0) + (o.lambo ? 0.1 : 0);
+  p *= 1 + (o.ringLight ? 0.3 : 0) + (o.ledStrip ? 0.05 : 0) + (o.chain ? 0.03 : 0) + (o.rolex ? 0.03 : 0) + (o.lambo ? 0.1 : 0) + (o.apartment ? 0.1 : 0) + (o.penthouse ? 0.2 : 0) + (o.zoe ? 0.15 : 0);
   return p;
 }
 const shillSize = () => 1 + Math.max(0, Math.log10(S.followers / 1000)) * 0.3;
-const coinEnv = () => ({ sentiment: S.sentiment, sizeMult: 1 });
+const coinEnv = () => ({ sentiment: S.sentiment * (S.story.celebLive ? 0.82 : 1), sizeMult: 1 });
 const credCap = () => 1.25 + (S.owned.statue ? 0.1 : 0);
 
 // ---------------- crew texts ----------------
@@ -174,7 +182,8 @@ function launchCoin(o) {
   logTx(`Launched $${c.ticker} (${custom ? 'custom token' : 'PumpBin'}) for ${fmtSOL(cost)} SOL.`);
   emit('launch', { coin: c });
   if (S.stats.launched === 1) text('Chad', 'LETS GOOO. now post about it on Chirp or nobody will ever see it');
-  advanceObjective(1);
+  objDone('launch');
+  storyOnLaunch(c);
   return null;
 }
 
@@ -193,7 +202,7 @@ function devSell(c, frac) {
   S.sol += sol;
   if (sol > 0) {
     emit('sold', { coin: c, sol });
-    advanceObjective(3);
+    objDone('profit');
     if (!c.rugged && c.dev.soldFrac >= 0.5) markRug(c, 'devdump');
   }
   return sol;
@@ -210,7 +219,7 @@ function claimFees(c) {
   c.feesClaimed += f; c.devProceeds += f; S.sol += f; S.stats.feesSol += f;
   logTx(`Claimed ${fmtSOL(f)} SOL in creator fees from $${c.ticker}.`);
   emit('fees', { coin: c, sol: f });
-  advanceObjective(3);
+  objDone('profit');
   return null;
 }
 function goLive(c) {
@@ -240,6 +249,7 @@ function markRug(c, method) {
   pushFeed({ who: 'Chirp', text: `$${c.ticker} holders are calling you out. -${lost.toLocaleString()} followers. Credibility ${Math.round(S.cred * 100)}%.`, kind: 'bad' });
   emit('rugged', { coin: c, lost, method });
   if (S.stats.rugs === 1) text('Chad', 'bro... the tele chat is NOT happy. we lost followers. money is money tho');
+  storyOnRug(c, method);
 }
 
 function closeCoin(c) {
@@ -261,6 +271,7 @@ function closeCoin(c) {
     const g = Math.round(winners * 0.6 + S.followers * 0.02 * (c.graduated ? 3 : 1));
     S.followers += g; S.cred = Math.min(credCap(), S.cred + (c.graduated ? 0.06 : 0.02));
     pushFeed({ who: 'Chirp', text: `$${c.ticker} holders respect a dev who didn't rug. +${g} followers.`, kind: 'good' });
+    storyOnLegit(c);
   }
   r.day = S.day;
   S.history.unshift(r); if (S.history.length > 60) S.history.length = 60;
@@ -294,8 +305,10 @@ function spawnNpcCoin(o = {}) {
   c.npc = { profile, nextShill: rand(2, 12), plan: profile === 'rugger' ? rand(2.2, 6) : profile === 'flipper' ? rand(1.8, 3.2) : rand(4, 12), rugAt: rand(45, 200), step: 0 };
   c.attnImp += rand(0.05, 0.35) * S.sentiment;
   c.copycatOf = o.copycatOf || null;
+  if (o.rival) c.rival = o.rival;
+  if (o.celeb) c.celeb = o.celeb;
   ECO.push(c);
-  if (S.owned.sniper && S.snipe.on && S.sol >= S.snipe.sol + 0.02) {
+  if (S.owned.sniper && S.snipe.on && S.sol >= S.snipe.sol + 0.02 && !(S.owned.dex && profile === 'rugger')) {
     S.sol -= S.snipe.sol;
     c.traderBuy(S.snipe.sol);
     c.sniped = true; S.stats.trades++;
@@ -339,7 +352,7 @@ function tradeSell(c, frac) {
   y.costBooked = (y.costBooked || 0) + (y.cost - (y.costBooked || 0)) * frac;
   S.stats.tradePnl += pnl;
   logTx(`Sold ${Math.round(frac * 100)}% of $${c.ticker} for ${fmtSOL(sol)} SOL (${pnl >= 0 ? '+' : ''}${fmtSOL(pnl)}).`);
-  if (pnl > 0) advanceObjective(6);
+  if (pnl > 0) objDone('trade');
   return null;
 }
 function writeOff(c) {
@@ -392,7 +405,7 @@ function postChirp(type, coin) {
   const impressions = Math.round((S.followers * rand(0.2, 0.65) + rand(40, 140)) * Math.max(0.3, q) * viralMult * (pt.mult || 1));
   const likes = Math.round(impressions * rand(0.012, 0.045));
   const followRate = 0.004 + 0.026 / (1 + S.followers / 500);
-  const boost = (S.owned.mo ? 1.25 : 1) * (S.owned.toilet ? 1.05 : 1);
+  const boost = (S.owned.mo ? 1.25 : 1) * (S.owned.toilet ? 1.05 : 1) * (S.owned.hypehouse ? 1.25 : 1) * (S.boosts.mod ? 1.05 : 1) * cycleFollowMult();
   let gain = Math.max(pt.follow > 0 ? 1 : 0, Math.round(impressions * followRate * rand(0.6, 1.4) * pt.follow * boost));
   if (type === 'giveaway') gain = Math.round(20 + S.followers * rand(0.04, 0.08));
   const ratioed = !viral && q < 0.5 && chance(0.35);
@@ -410,7 +423,7 @@ function postChirp(type, coin) {
     if (pt.linger) coin.attnImp += effect * 0.4;
     if (type === 'alpha') coin.calledAlpha = true;
     if (coin.tweetedAt == null) { coin.tweetedAt = coin.t; coin.tweetMcap = coin.mcapSol(); }
-    advanceObjective(2);
+    objDone('post');
   }
   const post = { id: Date.now() + Math.random(), type, text: textOut, coin: coin?.ticker || null, impressions, likes, reposts: Math.round(likes * rand(0.1, 0.35)), replies: Math.round(likes * rand(0.05, 0.25)), gain, viral, ratioed, age: 0, quality: q, effect };
   S.posts.unshift(post); if (S.posts.length > 30) S.posts.length = 30;
@@ -439,7 +452,7 @@ function cashOut(sol) {
   S.sol -= sol; S.cash += cashGot; S.stats.cashedOut += cashGot;
   logTx(`Cashed out ${fmtSOL(sol)} SOL → ${fmtUSD(cashGot)}.`);
   emit('cashout', { cash: cashGot });
-  advanceObjective(4);
+  objDone('cashout');
   return null;
 }
 function buySol(usdAmt) {
@@ -455,20 +468,23 @@ function buyItem(id) {
   if (!it) return 'Unknown item.';
   if (!it.consumable && S.owned[id]) return 'Already owned.';
   if (it.req && !S.owned[it.req]) return `Requires ${ITEM[it.req].name}.`;
+  if (it.follows && S.followers < it.follows) return `The landlord wants to see ${fmtNum(it.follows)} followers first.`;
   if (S.cash < it.price) return `You need ${fmtUSD(it.price)} in cash. Cash out SOL in the Wallet app.`;
+  if (HOMES[id] && LIVE.length) return 'Close your live coins before moving.';
   S.cash -= it.price;
   if (id === 'drinks') S.drinks += 6;
   else if (id === 'pizza') S.stamina = Math.min(staminaMax() + 40, S.stamina + 60);
   else S.owned[id] = true;
-  if (id === 'kev') { S.owned.kevDesk = true; advanceObjective(9); }
+  if (id === 'kev') S.owned.kevDesk = true;
+  if (ITEM[id].cat === 'Crew' && id !== 'burner' && id !== 'rolodex') objDone(id === 'zoe' || id === 'dex' ? 'crew' : id);
   if (id === 'statue') S.cred = Math.min(credCap(), S.cred + 0.1);
   if (id === 'lambo') setTimeout(() => text('Mom', 'WHY IS THERE A LAMBORGHINI ON MY LAWN'), 4000);
   if (id === 'momCar') setTimeout(() => text('Mom', 'The bank says my car is paid off?? What did you do. Love you.'), 3000);
   if (id === 'momHouse') setTimeout(() => text('Mom', 'Florida is wonderful. Are you eating vegetables?'), 3000);
   logTx(`Bought ${it.name} for ${fmtUSD(it.price)}.`);
   emit('bought', { item: it });
-  advanceObjective(5);
-  if (id === 'penthouse') { S.ended = 'moveout'; emit('ending', { kind: 'moveout' }); }
+  objDone('buy');
+  if (HOMES[id]) moveHome(id);
   return null;
 }
 function drink() {
@@ -491,47 +507,47 @@ function sleep() {
   S.cred = Math.min(Math.max(c0, 1.1), S.cred + 0.03);
   if (S.cred > c0) rep.lines.push(['Credibility', `${Math.round(c0 * 100)}% → ${Math.round(S.cred * 100)}%`]);
   if (S.owned.miningRig) { S.sol += 0.35; rep.lines.push(['Mining rig', '+0.35 SOL']); }
-  if (S.day % 3 === 0 && !S.owned.momCar && !S.owned.momHouse) {
+  if (S.boosts.rested) { S.stamina += 30; delete S.boosts.rested; rep.lines.push(['Slept in', '+30 energy']); }
+  if (S.owned.zoe) { const g = Math.round(S.followers * 0.03 + 20); S.followers += g; rep.lines.push(['Zoe\'s clips', `+${fmtNum(g)} followers overnight`]); }
+  const rent = HOMES[S.loc]?.rent || 0;
+  if (rent) { S.cash -= rent; rep.lines.push(['Rent', `-${fmtUSD(rent)}`]); if (S.cash < 0) rep.lines.push(['Landlord', 'You\'re behind on rent. Cash out some SOL.']); }
+  if (S.loc === 'basement' && S.day % 3 === 0 && !S.owned.momCar && !S.owned.momHouse) {
     const rent = S.cash > 20000 ? 500 : S.cash > 2000 ? 120 : 40;
     S.cash -= rent;
     rep.lines.push(['Mom', `"Grocery money." -${fmtUSD(rent)}`]);
   }
+  const cyc = rollCycle();
+  const drift = S.cycle.phase === 'bull' ? 0.05 : S.cycle.phase === 'bear' ? -0.06 : 0;
   const s0 = S.solPrice;
-  S.solPrice = clamp(S.solPrice * Math.exp(gauss() * 0.06 + (150 - S.solPrice) / 1500), 70, 400);
+  S.solPrice = clamp(S.solPrice * Math.exp(gauss() * 0.06 + drift + (150 - S.solPrice) / 1500), 60, 520);
   rep.lines.push(['SOL price', `${fmtUSD(s0)} → ${fmtUSD(S.solPrice)}`]);
-  S.sentiment = clamp(0.55 + Math.random() * 0.95, 0.5, 1.5);
-  rep.lines.push(['Market mood', S.sentiment > 1.15 ? 'Euphoric: everyone is aping' : S.sentiment < 0.8 ? 'Bearish: nobody is buying' : 'Normal']);
-  S.meta = pick(METAS.filter((m) => m !== S.meta));
+  S.sentiment = S.cycle.phase === 'bull' ? rand(1.2, 1.6) : S.cycle.phase === 'bear' ? rand(0.45, 0.75) : clamp(0.55 + Math.random() * 0.95, 0.5, 1.5);
+  if (cyc) rep.lines.push(['Market cycle', cyc]);
+  rep.lines.push(['Market mood', S.cycle.phase === 'bull' ? 'Bull run: buyers everywhere' : S.cycle.phase === 'bear' ? 'Bear market: nobody is buying' : S.sentiment > 1.15 ? 'Euphoric: everyone is aping' : S.sentiment < 0.8 ? 'Bearish: nobody is buying' : 'Normal']);
+  S.meta = S.story.nextMeta && S.story.nextMeta !== S.meta ? S.story.nextMeta : pick(METAS.filter((m) => m !== S.meta));
   rep.lines.push(['New meta', `${S.meta} are trending today`]);
+  if (S.owned.dex) { S.story.nextMeta = pick(METAS.filter((m) => m !== S.meta)); rep.lines.push(['Dex\'s forecast', `${S.story.nextMeta} tomorrow. Cycle: ${forecastCycle()}`]); }
   S.clock = 13 * 60 + randi(0, 50);
   ECO = ECO.filter((c) => (c.you()?.tokens || 0) > 0);
   ecoSpawnT = 2;
+  storyMorning(rep);
   emit('slept', rep);
   return rep;
 }
 
-// ---------------- objectives ----------------
-const OBJECTIVES = [
-  'Sit down at your PC (desk, north wall)',
-  'Launch your first coin on PumpBin',
-  'Post about your coin on Chirp',
-  'Take profit or claim creator fees',
-  'Cash out SOL to dollars (Wallet)',
-  'Buy something from the Shop',
-  'Make a profitable trade in the Trenches',
-  'Grow your Chirp account to 1,000 followers',
-  'Get a coin to graduate to the DEX',
-  'Save $12,000 and hire Kev (Shop → Crew)',
-  'Reach $100,000 net worth',
-  'Move out: buy the Penthouse ($1,000,000)',
-];
-function advanceObjective(i) {
-  if (S.objective === i) { S.objective++; emit('objective'); }
+// ---------------- objectives (per chapter, see story.js) ----------------
+function objDone(key) {
+  if (!S || S.done[key]) return;
+  S.done[key] = true;
+  const ch = CHAPTERS[S.chapter - 1];
+  if (ch && ch.goals.some(([k]) => k === key)) emit('objective', { key });
 }
 function checkObjectives() {
-  if (S.objective === 7 && S.followers >= 1000) advanceObjective(7);
-  if (S.objective === 8 && (LIVE.some((c) => c.graduated) || S.stats.graduated > 0)) advanceObjective(8);
-  if (S.objective === 10 && netWorth() >= 100000) advanceObjective(10);
+  if (S.followers >= 1000) objDone('f1k');
+  if (S.followers >= 10000) objDone('f10k');
+  if (S.followers >= 50000) objDone('f50k');
+  if (LIVE.some((c) => c.graduated) || S.stats.graduated > 0) objDone('graduate');
+  if (S.chapter >= 3 && netWorth() >= 500000) objDone('nw500k');
 }
 
 // ---------------- tick ----------------
@@ -552,7 +568,7 @@ function gameTick(dt) {
         pushFeed({ who: 'Chirp', text: `You called $${c.ticker} before a 3x. +${g} followers.`, kind: 'good' });
       }
     }
-    for (const c of ECO) { c.tick(SIM_DT, env); npcDevTick(c); }
+    for (const c of ECO) { c.tick(SIM_DT, c.celeb ? { ...env, sentiment: S.sentiment * 1.3 } : env); npcDevTick(c); }
   }
   for (const c of LIVE) while (c.events.length) emit('coinevent', { coin: c, ev: c.events.shift(), mine: true });
   for (const c of ECO) {
@@ -568,6 +584,7 @@ function gameTick(dt) {
   netT -= dt;
   if (netT <= 0) { netT = 5; S.netHist.push(Math.round(netWorth())); if (S.netHist.length > 120) S.netHist.shift(); }
   checkObjectives();
+  storyTick(dt);
 }
 
 // ---------------- save / load ----------------
@@ -587,6 +604,10 @@ function loadGame() {
     const d = JSON.parse(raw);
     if (!d?.S || d.S.v !== 3) return false;
     S = Object.assign(newGameState(), d.S);
+    if (!S.done) S.done = {};
+    if (S.owned.penthouse && S.loc === 'basement') S.loc = 'penthouse';
+    S.chapter = Math.max(S.chapter || 1, LOCS[S.loc]?.chapter || 1);
+   
     const revive = (o) => Object.assign(Object.create(Coin.prototype), o);
     LIVE = (d.LIVE || []).map(revive);
     ECO = (d.ECO || []).map(revive);
@@ -596,8 +617,8 @@ function loadGame() {
 }
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
 function wipeSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ } }
-function newGame() {
-  S = newGameState(); LIVE = []; ECO = []; FOCUS = null; ecoSpawnT = 4;
+function newGame(mode = 'story') {
+  S = newGameState(); S.mode = mode; LIVE = []; ECO = []; FOCUS = null; ecoSpawnT = 4;
   for (let i = 0; i < 4; i++) { const c = spawnNpcCoin(); for (let k = 0; k < 200 + i * 300; k++) { c.tick(SIM_DT, coinEnv()); npcDevTick(c); } c.events.length = 0; }
   text('Chad', 'yo you up?? i found the play. MEMECOINS. get on the PC');
 }

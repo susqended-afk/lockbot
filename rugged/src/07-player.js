@@ -137,8 +137,9 @@ class Player {
   }
   collide(p) {
     const r = 0.28;
-    p.x = clamp(p.x, ROOM.x0 + r, ROOM.x1 - r);
-    p.z = clamp(p.z, ROOM.z0 + r, ROOM.z1 - r);
+    const B = this.W.bounds || ROOM;
+    p.x = clamp(p.x, B.x0 + r, B.x1 - r);
+    p.z = clamp(p.z, B.z0 + r, B.z1 - r);
     const boxes = this.W.colliders.concat(this.W.dynColliders || []);
     for (let pass = 0; pass < 2; pass++) for (const b of boxes) {
       const cx = clamp(p.x, b.x0, b.x1), cz = clamp(p.z, b.z0, b.z1);
