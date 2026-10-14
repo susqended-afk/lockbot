@@ -1,4 +1,4 @@
-#include "UI/BoostedButton.h"
+#include "BoostedButton.h"
 
 void UBoostedButton::SetCallback(TFunction<void()> InCallback)
 {

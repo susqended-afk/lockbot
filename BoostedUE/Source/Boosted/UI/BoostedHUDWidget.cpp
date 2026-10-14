@@ -1,4 +1,4 @@
-#include "UI/BoostedHUDWidget.h"
+#include "BoostedHUDWidget.h"
 #include "BoostedCharacter.h"
 #include "BoostedGameInstance.h"
 #include "BoostedGameMode.h"

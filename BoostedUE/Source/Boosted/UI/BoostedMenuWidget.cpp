@@ -1,5 +1,5 @@
-#include "UI/BoostedMenuWidget.h"
-#include "UI/BoostedButton.h"
+#include "BoostedMenuWidget.h"
+#include "BoostedButton.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/ButtonSlot.h"
