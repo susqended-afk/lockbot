@@ -70,7 +70,7 @@ private:
 	void ShowBoostList(TFunction<void()> Back);
 	void ShowControls(TFunction<void()> Back);
 
-	UPROPERTY(Transient) TObjectPtr<UBoostedHUDWidget> HUD;
+	UPROPERTY(Transient) TObjectPtr<UBoostedHUDWidget> HudWidget;
 	UPROPERTY(Transient) TObjectPtr<UBoostedMenuWidget> Menu;
 	UPROPERTY(Transient) TObjectPtr<ABoostedCharacter> OnFootCharacter;
 	UPROPERTY(Transient) TObjectPtr<ACameraActor> MenuCamera;

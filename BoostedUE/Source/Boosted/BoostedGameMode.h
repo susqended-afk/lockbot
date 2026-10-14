@@ -56,7 +56,7 @@ public:
 	/** Re-spawn the player's body after the character creator changed it. */
 	void RespawnPlayerBody();
 
-	ABoostedVehicle* SpawnCar(FName ModelId, const FTransform& Transform, EVehicleRole Role, const FCarUpgrades* Upgrades = nullptr, float Health = 1.f);
+	ABoostedVehicle* SpawnCar(FName ModelId, const FTransform& Transform, EVehicleRole InRole, const FCarUpgrades* Upgrades = nullptr, float Health = 1.f);
 	ABoostedCity* GetCity();
 	UBoostedGameInstance* GetGI() const;
 	ABoostedPlayerController* GetPC() const;

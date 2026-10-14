@@ -168,21 +168,21 @@ void ABoostedCharacter::DressSlot(USkeletalMeshComponent* Target, const TArray<F
 	}
 }
 
-void ABoostedCharacter::ApplyLook(const FCharacterLook& Look)
+void ABoostedCharacter::ApplyLook(const FCharacterLook& InLook)
 {
 	const UBoostedSettings* S = UBoostedSettings::Get();
 	USkeletalMeshComponent* TopTarget = FindSkeletalByNames(TopComponentNames);
 	USkeletalMeshComponent* BottomTarget = FindSkeletalByNames(BottomComponentNames);
 	USkeletalMeshComponent* ShoesTarget = FindSkeletalByNames(ShoesComponentNames);
-	DressSlot(TopTarget ? TopTarget : TopSlot.Get(), S->Tops, Look.Top, Look.TopColor);
-	DressSlot(BottomTarget ? BottomTarget : BottomSlot.Get(), S->Bottoms, Look.Bottom, Look.BottomColor);
-	DressSlot(ShoesTarget ? ShoesTarget : ShoesSlot.Get(), S->Shoes, Look.Shoes, Look.ShoesColor);
-	DressSlot(HeadwearSlot, S->Headwear, Look.Headwear, Look.HeadwearColor);
+	DressSlot(TopTarget ? TopTarget : TopSlot.Get(), S->Tops, InLook.Top, InLook.TopColor);
+	DressSlot(BottomTarget ? BottomTarget : BottomSlot.Get(), S->Bottoms, InLook.Bottom, InLook.BottomColor);
+	DressSlot(ShoesTarget ? ShoesTarget : ShoesSlot.Get(), S->Shoes, InLook.Shoes, InLook.ShoesColor);
+	DressSlot(HeadwearSlot, S->Headwear, InLook.Headwear, InLook.HeadwearColor);
 
 	ChainSlot->SetStaticMesh(nullptr);
-	if (S->Chains.IsValidIndex(Look.Chain))
+	if (S->Chains.IsValidIndex(InLook.Chain))
 	{
-		const FBoostedAccessory& Acc = S->Chains[Look.Chain];
+		const FBoostedAccessory& Acc = S->Chains[InLook.Chain];
 		if (UStaticMesh* ChainMesh = Acc.Mesh.IsNull() ? nullptr : Acc.Mesh.LoadSynchronous())
 		{
 			ChainSlot->AttachToComponent(GetBodyComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Acc.Socket);
@@ -190,7 +190,7 @@ void ABoostedCharacter::ApplyLook(const FCharacterLook& Look)
 			ChainSlot->SetStaticMesh(ChainMesh);
 		}
 	}
-	OnLookApplied(Look);
+	OnLookApplied(InLook);
 }
 
 // ---------------------------------------------------------------------- input
@@ -276,7 +276,7 @@ ABoostedVehicle* ABoostedCharacter::FindNearbyVehicle() const
 	for (TActorIterator<ABoostedVehicle> It(GetWorld()); It; ++It)
 	{
 		ABoostedVehicle* V = *It;
-		if (!V || V->IsActorBeingDestroyed() || V->Role == EVehicleRole::Player)
+		if (!V || V->IsActorBeingDestroyed() || V->VehicleRole == EVehicleRole::Player)
 		{
 			continue;
 		}

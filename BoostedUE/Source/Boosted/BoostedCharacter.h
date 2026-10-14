@@ -49,9 +49,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Boosted|Stealing") float InteractRange = 330.f;
 
 	// ------------------------------------------------------------------ API
-	UFUNCTION(BlueprintCallable, Category = "Boosted") void ApplyLook(const FCharacterLook& Look);
+	UFUNCTION(BlueprintCallable, Category = "Boosted") void ApplyLook(const FCharacterLook& InLook);
 	/** Hook for Blueprint-only cosmetics (hair color, tattoos...). */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Boosted") void OnLookApplied(const FCharacterLook& Look);
+	UFUNCTION(BlueprintImplementableEvent, Category = "Boosted") void OnLookApplied(const FCharacterLook& InLook);
 	/** Play a lock-picking / window-smash montage here. */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boosted") void OnBreakInStarted();
 	UFUNCTION(BlueprintImplementableEvent, Category = "Boosted") void OnBreakInStopped();

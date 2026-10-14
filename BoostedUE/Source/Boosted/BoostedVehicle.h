@@ -42,7 +42,7 @@ public:
 
 	// ------------------------------------------------------------------ state
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boosted") FName ModelId = TEXT("hellhound");
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boosted") EVehicleRole Role = EVehicleRole::Parked;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boosted") EVehicleRole VehicleRole = EVehicleRole::Parked;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boosted") bool bLocked = true;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boosted") bool bHot = false;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boosted") bool bOwned = false;

@@ -83,7 +83,7 @@ void ABoostedVehicle::BeginPlay()
 			Self->ApplyUpgrades(Self->Upgrades);
 		}
 	});
-	if (Role == EVehicleRole::Parked)
+	if (VehicleRole == EVehicleRole::Parked)
 	{
 		SetParked(true);
 	}
@@ -368,7 +368,7 @@ void ABoostedVehicle::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 
 	// nitrous: straight forward push while held
-	const bool bPlayer = Role == EVehicleRole::Player;
+	const bool bPlayer = VehicleRole == EVehicleRole::Player;
 	bNitroActive = bPlayer && bNitroHeld && Upgrades.Nitro > 0 && NitroFuel > 0.f && !IsWrecked() && GetForwardSpeedMS() > -1.f;
 	if (bNitroActive)
 	{

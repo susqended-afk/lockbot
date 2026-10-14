@@ -280,10 +280,10 @@ void ABoostedGameMode::WarnNoVehicleClass()
 	}
 }
 
-ABoostedVehicle* ABoostedGameMode::SpawnCar(FName ModelId, const FTransform& Transform, EVehicleRole Role, const FCarUpgrades* Upgrades, float Health)
+ABoostedVehicle* ABoostedGameMode::SpawnCar(FName ModelId, const FTransform& Transform, EVehicleRole InRole, const FCarUpgrades* Upgrades, float Health)
 {
 	const UBoostedSettings* S = UBoostedSettings::Get();
-	const bool bPolice = Role == EVehicleRole::Police || ModelId == TEXT("interceptor");
+	const bool bPolice = InRole == EVehicleRole::Police || ModelId == TEXT("interceptor");
 	TSubclassOf<ABoostedVehicle> Cls = bPolice ? S->ResolvePoliceClass() : S->ResolveVehicleClass(ModelId);
 	if (!Cls)
 	{
@@ -296,9 +296,9 @@ ABoostedVehicle* ABoostedGameMode::SpawnCar(FName ModelId, const FTransform& Tra
 		return nullptr;
 	}
 	V->ModelId = ModelId;
-	V->Role = Role;
+	V->VehicleRole = InRole;
 	V->bIsPolice = bPolice;
-	V->bLocked = Role != EVehicleRole::Abandoned;
+	V->bLocked = InRole != EVehicleRole::Abandoned;
 	V->Health = Health;
 	V->Upgrades = Upgrades ? *Upgrades : FactoryUpgrades(ModelId);
 	if (bPolice && !Upgrades)
@@ -463,7 +463,7 @@ void ABoostedGameMode::UpdateSpawning()
 	for (int32 i = 0; i < Spots.Num(); ++i)
 	{
 		ABoostedVehicle* Car = SpotCars[i].Get();
-		if (Car && Car->Role != EVehicleRole::Parked)
+		if (Car && Car->VehicleRole != EVehicleRole::Parked)
 		{
 			SpotCars[i] = nullptr; // stolen: leave the spot empty for a while
 			SpotNext[i] = Now + 90.f;
@@ -554,7 +554,7 @@ void ABoostedGameMode::UpdateSpawning()
 	for (TActorIterator<ABoostedVehicle> It(GetWorld()); It; ++It)
 	{
 		ABoostedVehicle* V = *It;
-		if (V->Role == EVehicleRole::Abandoned && FVector::Dist2D(V->GetActorLocation(), Here) > 30000.f)
+		if (V->VehicleRole == EVehicleRole::Abandoned && FVector::Dist2D(V->GetActorLocation(), Here) > 30000.f)
 		{
 			if (V->bOwned && G)
 			{
@@ -700,7 +700,7 @@ void ABoostedGameMode::OnVehicleImpact(ABoostedVehicle* V, AActor* Other, float 
 	{
 		D->Panic(6.f);
 	}
-	else if (OtherCar->Role == EVehicleRole::Parked && ImpactMS > 8.f && FMath::FRand() < 0.5f)
+	else if (OtherCar->VehicleRole == EVehicleRole::Parked && ImpactMS > 8.f && FMath::FRand() < 0.5f)
 	{
 		OtherCar->TriggerAlarm(4.f);
 	}

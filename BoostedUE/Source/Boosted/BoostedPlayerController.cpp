@@ -71,10 +71,10 @@ void ABoostedPlayerController::BeginPlay()
 	{
 		return;
 	}
-	HUD = CreateWidget<UBoostedHUDWidget>(this, UBoostedHUDWidget::StaticClass());
-	if (HUD)
+	HudWidget = CreateWidget<UBoostedHUDWidget>(this, UBoostedHUDWidget::StaticClass());
+	if (HudWidget)
 	{
-		HUD->AddToViewport(0);
+		HudWidget->AddToViewport(0);
 	}
 	Menu = CreateWidget<UBoostedMenuWidget>(this, UBoostedMenuWidget::StaticClass());
 	if (Menu)
@@ -188,7 +188,7 @@ void ABoostedPlayerController::EnterVehicle(ABoostedVehicle* V, bool bCarjack)
 		}
 	}
 	V->bLocked = false;
-	V->Role = EVehicleRole::Player;
+	V->VehicleRole = EVehicleRole::Player;
 	V->bSirenOn = false;
 	V->bPursuit = false;
 	V->Driver = C;
@@ -223,7 +223,7 @@ void ABoostedPlayerController::ExitVehicle(bool bForce)
 		C->SetActorLocation(Spot);
 	}
 	V->Driver = nullptr;
-	V->Role = EVehicleRole::Abandoned;
+	V->VehicleRole = EVehicleRole::Abandoned;
 	Possess(C);
 	SetControlRotation(FRotator(-10.f, Rot.Yaw, 0.f));
 }
@@ -232,17 +232,17 @@ void ABoostedPlayerController::ExitVehicle(bool bForce)
 
 void ABoostedPlayerController::Toast(const FString& Text, const FLinearColor& Color)
 {
-	if (HUD)
+	if (HudWidget)
 	{
-		HUD->Toast(Text, Color);
+		HudWidget->Toast(Text, Color);
 	}
 }
 
 void ABoostedPlayerController::Banner(const FString& Big, const FString& Sub, const FLinearColor& Color)
 {
-	if (HUD)
+	if (HudWidget)
 	{
-		HUD->Banner(Big, Sub, Color);
+		HudWidget->Banner(Big, Sub, Color);
 	}
 }
 
