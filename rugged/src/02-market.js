@@ -22,19 +22,25 @@ const DEV_TX_FEE = 0.005; // priority fee per dev transaction
 const CREATOR_FEE = 0.003; // creator reward: share of every trade's volume
 const CUSTOM_DEPLOY_FEE = 0.4;
 
+// Meme archetypes from memecoin culture (parody names only).
 const MEME_KINDS = {
-  frog:    { meta: 'FROGS',     animal: true,  label: 'Frog' },
-  dog:     { meta: 'DOGS',      animal: true,  label: 'Dog' },
-  cat:     { meta: 'CATS',      animal: true,  label: 'Cat' },
-  penguin: { meta: 'ANIMALS',   animal: true,  label: 'Penguin' },
-  robot:   { meta: 'AI AGENTS', animal: false, label: 'AI Bot' },
-  rocket:  { meta: 'SPACE',     animal: false, label: 'Rocket' },
-  moon:    { meta: 'SPACE',     animal: false, label: 'Moon' },
-  burger:  { meta: 'FOOD',      animal: false, label: 'Burger' },
-  banana:  { meta: 'FOOD',      animal: false, label: 'Banana' },
-  chad:    { meta: 'GIGACHAD',  animal: false, label: 'Chad' },
+  dogwifhat: { meta: 'DOGS',        animal: true,  label: 'Dog wif hat',  names: [['dogwifbeanie', 'WIFB'], ['dogwifhoodie', 'HOODWIF'], ['catwifhat', 'CWIF']] },
+  shiba:     { meta: 'DOGS',        animal: true,  label: 'Shiba',        names: [['Bonkers', 'BONKR'], ['Basement Inu', 'BINU'], ['Doge Junior', 'DOJR']] },
+  frog:      { meta: 'FROGS',       animal: true,  label: 'Smug frog',    names: [['Pepo', 'PEPO'], ['Feels Frog', 'FEELS'], ['Ribbit Reloaded', 'RIBBIT']] },
+  mogcat:    { meta: 'CATS',        animal: true,  label: 'Mog cat',      names: [['Mogcat', 'MOGC'], ['Cat in Shades', 'SHADES'], ['Michi Mog', 'MICHI']] },
+  popcat:    { meta: 'CATS',        animal: true,  label: 'Pop cat',      names: [['Popcap', 'POPC'], ['Blinkcat', 'BLINK'], ['Loud Cat', 'LOUD']] },
+  hippo:     { meta: 'ANIMALS',     animal: true,  label: 'Baby hippo',   names: [['Moo Dong', 'MOODG'], ['Hippo Tantrum', 'TANTRUM'], ['Bite Hippo', 'BITE']] },
+  squirrel:  { meta: 'ANIMALS',     animal: true,  label: 'Peanut squirrel', names: [["Peanut's Revenge", 'PNUTR'], ['Justice 4 Squirrel', 'SQRL'], ['Nutty', 'NUTTY']] },
+  monkey:    { meta: 'ANIMALS',     animal: true,  label: 'Monke',        names: [['Ponk', 'PONK'], ['Monke', 'MONKE'], ['Banana Brain', 'BNNB']] },
+  penguin:   { meta: 'ANIMALS',     animal: true,  label: 'Penguin',      names: [['Pudgy Pengu', 'PPNGU'], ['Waddle', 'WADDL'], ['Ice Cold', 'ICE']] },
+  goat:      { meta: 'AI AGENTS',   animal: true,  label: 'AI goat',      names: [['Goatseus Minimus', 'GOATM'], ['Terminal Goat', 'TGOAT'], ['Goat GPT', 'GGPT']] },
+  robot:     { meta: 'AI AGENTS',   animal: false, label: 'AI agent',     names: [['Agent Zero', 'AGENT0'], ['GPTurbo', 'GPTT'], ['Sentient Toaster', 'TOAST']] },
+  chill:     { meta: 'CHILL VIBES', animal: true,  label: 'Chill guy',    names: [['Just a Chill Dude', 'CHILLD'], ['Unbothered', 'UNBTHR'], ['Lowkey', 'LOWKEY']] },
+  fart:      { meta: 'FART COINS',  animal: false, label: 'Fart cloud',   names: [['Tootcoin', 'TOOT'], ['Gas Giant', 'GAS'], ['Silent But Deadly', 'SBD']] },
+  chad:      { meta: 'GIGACHAD',    animal: false, label: 'Gigachad',     names: [['Gigachad', 'GIGA'], ['Sigma Grindset', 'SIGMA'], ['Jawline', 'JAW']] },
+  moon:      { meta: 'SPACE',       animal: false, label: 'Moon',         names: [['Wen Moon', 'WENMN'], ['Lunar Degen', 'LUNAD'], ['Moonboi', 'MBOI']] },
 };
-const METAS = ['FROGS', 'DOGS', 'CATS', 'ANIMALS', 'AI AGENTS', 'SPACE', 'FOOD', 'GIGACHAD'];
+const METAS = ['DOGS', 'CATS', 'FROGS', 'ANIMALS', 'AI AGENTS', 'CHILL VIBES', 'FART COINS', 'GIGACHAD', 'SPACE'];
 
 function metaMultiplier(kind, meta) {
   const k = MEME_KINDS[kind];
@@ -55,6 +61,7 @@ const TT = {
   chirp:    { w: 0,    buy: [0.03, 0.9],  tp: [1.3, 3.0],  sl: [0.5, 0.7],  hold: [15, 140],   paper: 0.75, smart: 0.2 },
   follower: { w: 0,    buy: [0.05, 1.0], tp: [1.3, 2.5],  sl: [0.55, 0.7], hold: [12, 90],    paper: 0.85, smart: 0.25 },
   kol:      { w: 0,    buy: [1, 1],      tp: [1.4, 2.0],  sl: [0.5, 0.6],  hold: [25, 70],    paper: 0.9,  smart: 0.3 },
+  you:      { w: 0,    buy: [0, 0],      tp: [1e9, 1e9],  sl: [0, 0],      hold: [1e9, 1e9],  paper: 0,    smart: 0 },
 };
 
 const HANDLES = ['wenlambo', 'ser_pump', 'degenDave', 'apeMaxi', '0xKaren', 'solgod', 'bagholdr', 'jeetHunter', 'rentmoney', 'moonboi',
@@ -415,7 +422,7 @@ class Coin {
     // the occasional dip-buyer among existing holders
     if (this.panic < 0.3 && mom < 0.9 && chance(dt * 0.6 * base)) {
       const h = pick(this.holders);
-      if (h && h.tokens > 0 && h.type !== 'sniper' && h.type !== 'kol') {
+      if (h && h.tokens > 0 && h.type !== 'sniper' && h.type !== 'kol' && h.type !== 'you') {
         const r = this._buy(logRand(0.05, 0.8) * env.sizeMult);
         if (r.tokens > 0) { h.avg = (h.cost + r.sol) / (h.tokens + r.tokens); h.tokens += r.tokens; h.cost += r.sol; this._trade('buy', r.sol, r.tokens, h); }
       }
@@ -424,7 +431,7 @@ class Coin {
     // holder exits
     const price = this.price();
     for (const h of this.holders) {
-      if (h.tokens <= 0) continue;
+      if (h.tokens <= 0 || h.type === 'you') continue;
       const ratio = price / h.avg;
       let rate = 1 / h.hold;
       if (ratio >= h.tp) rate += 0.5;
@@ -436,7 +443,7 @@ class Coin {
         if (!this.isLive()) break;
       }
     }
-    if (this.holders.length > 500) this.holders = this.holders.filter((h) => h.tokens > 0);
+    if (this.holders.length > 500) this.holders = this.holders.filter((h) => h.tokens > 0 || h.type === 'you');
 
     // moods + chat
     const p5 = ph.length > 5 ? ph[ph.length - 6] : price0;
@@ -474,7 +481,7 @@ class Coin {
     const f = tk / Math.max(1, main.start);
     this.dev.soldAny = true; this.dev.soldFrac += f;
     this.panic = Math.min(1, this.panic + 0.22 + f * 0.75);
-    this._event('devsold', `Your dev wallet sold ${fmtNum(tk)} $${this.ticker} for ${fmtSOL(sol)} SOL. Everyone saw it.`);
+    this._event('devsold', this.npc ? `The $${this.ticker} dev sold ${Math.round(frac * 100)}% of their bag.` : `Your dev wallet sold ${fmtNum(tk)} $${this.ticker} for ${fmtSOL(sol)} SOL. Everyone saw it.`);
     this._burstChat('devsold', 3 + Math.round(f * 4));
     this.rugMethod = this.rugMethod || 'devdump';
     return sol;
@@ -526,6 +533,43 @@ class Coin {
     // posting in the community chat to steer the mood
     if (kind === 'calm') { this.panic *= 0.55; this._say('DEV', pick(['relax guys, just a shakeout 🫡', 'not selling, building', 'jeets out, we good']), 'dev'); }
     if (kind === 'hype') { this.attnImp += 0.12; this._say('DEV', pick(['WE ARE GOING TO 10M', 'raid time, everyone to Chirp 🚀', 'who is ready for dex?']), 'dev'); }
+  }
+  // Dev buys more of their own coin: bigger bag, volume, and a confidence signal.
+  devBuy(sol) {
+    if (!this.isLive() || sol <= 0) return 0;
+    const r = this._buy(sol);
+    if (r.tokens <= 0) return 0;
+    const m = this.dev.main;
+    m.tokens += r.tokens; m.start += r.tokens; m.cost += r.sol;
+    this.devCost += r.sol;
+    this._trade('buy', r.sol, r.tokens, { handle: 'DEV', dev: true });
+    this.recentBuys.push([this.t, r.sol * 0.5]);
+    this.attnImp += Math.min(0.3, r.sol * 0.04);
+    this.panic *= 0.7;
+    this._event('devbuy', `Dev bought ${fmtSOL(r.sol)} more SOL of $${this.ticker}. Holders love to see it.`);
+    if (chance(0.7)) this._burstChat('pump', 2);
+    return r.tokens;
+  }
+  // ---------- you as a trader in someone else's coin ----------
+  you() { return this.holders.find((h) => h.type === 'you') || null; }
+  traderBuy(sol) {
+    if (!this.isLive() || sol <= 0) return 0;
+    const r = this._buy(sol);
+    if (r.tokens <= 0) return 0;
+    let h = this.you();
+    if (!h) { h = this._newHolder('you', r, { handle: 'YOU', hold: 1e9 }); }
+    else { h.tokens += r.tokens; h.cost += r.sol; h.avg = h.cost / h.tokens; }
+    this._trade('buy', r.sol, r.tokens, { handle: 'YOU' });
+    return r.tokens;
+  }
+  traderSell(frac) {
+    const h = this.you();
+    if (!h || h.tokens <= 0 || !this.isLive()) return 0;
+    const tk = h.tokens * frac;
+    const sol = this._sell(tk);
+    h.tokens -= tk; h.proceeds += sol;
+    this._trade('sell', sol, tk, { handle: 'YOU' });
+    return sol;
   }
   queueKol(kol) {
     const buyAt = this.t + rand(3, 8);
@@ -614,7 +658,7 @@ function memeScoreFor(name, ticker, kind, meta) {
   if (tl >= 3 && tl <= 5) s += 0.06;
   if (tl > 7) s -= 0.08;
   const lower = name.toLowerCase();
-  const kw = { FROGS: ['frog', 'ribbit', 'toad'], DOGS: ['dog', 'inu', 'doge', 'pup', 'wif'], CATS: ['cat', 'kitty', 'meow', 'cat'], 'AI AGENTS': ['ai', 'gpt', 'agent', 'bot'], SPACE: ['moon', 'mars', 'rocket', 'space'], FOOD: ['burger', 'banana', 'pizza', 'taco'], GIGACHAD: ['chad', 'giga', 'sigma'], ANIMALS: ['frog', 'dog', 'cat', 'penguin', 'pengu'] };
+  const kw = { FROGS: ['frog', 'ribbit', 'pep', 'feels'], DOGS: ['dog', 'inu', 'doge', 'wif', 'bonk', 'shib'], CATS: ['cat', 'mog', 'pop', 'meow', 'michi'], 'AI AGENTS': ['ai', 'gpt', 'agent', 'goat', 'terminal'], SPACE: ['moon', 'mars', 'luna'], 'CHILL VIBES': ['chill', 'lowkey', 'unbothered'], 'FART COINS': ['fart', 'toot', 'gas'], GIGACHAD: ['chad', 'giga', 'sigma'], ANIMALS: ['hippo', 'squirrel', 'peanut', 'monke', 'pengu', 'pnut'] };
   if ((kw[meta] || []).some((k) => lower.includes(k))) s += 0.12;
   return clamp(s, 0.6, 1.45);
 }

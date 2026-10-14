@@ -15,12 +15,18 @@
   </div>
   <div id="touch" hidden>
     <div id="stick" hidden><div id="knob"></div></div>
-    <div class="tbtns"><button id="use-btn" hidden>USE</button><button id="phone-btn" aria-label="Phone">📱</button><button id="menu-btn" aria-label="Menu">☰</button></div>
+    <div class="tbtns"><button id="use-btn" hidden>USE</button><button id="phone-btn" aria-label="Phone"><svg class="i" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></button><button id="menu-btn" aria-label="Menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
   </div>
   <div id="pc" hidden>
-    <div class="pc-frame">
-      <header class="pc-bar"><div class="os">BASEMENT<span>OS</span></div><div id="pc-bal"></div><div id="pc-clock"></div><button id="pc-close" class="btn ghost">Leave PC <kbd>Esc</kbd></button></header>
-      <div class="pc-body"><nav id="pc-dock"></nav><main id="pc-main"></main></div>
+    <div class="os">
+      <header class="os-top">
+        <div class="brandmark"><span class="bm">R</span>BasementOS <small>Pro</small></div>
+        <label class="os-search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="pc-search" placeholder="Search coins in the Trenches" autocomplete="off"></label>
+        <div class="os-pills" id="pc-pills"></div>
+        <div class="os-clock" id="pc-clock"></div>
+        <button id="pc-close" class="btn ghost">Leave PC <kbd>Esc</kbd></button>
+      </header>
+      <div class="os-body"><nav class="os-nav" id="pc-nav" aria-label="Apps"></nav><main class="os-main" id="pc-main"></main></div>
     </div>
   </div>
   <div id="phone" hidden></div>

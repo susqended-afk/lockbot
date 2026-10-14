@@ -23,6 +23,7 @@ async function boot() {
   TEX_SIZE = high ? 1024 : 512;
   const Q = { tex: TEX_SIZE, shadow: high ? 2048 : 1024, high };
   setLoading('Waking up the basement…', 5); await nextFrame();
+  await loadEmoji();
   renderer = new THREE.WebGLRenderer({ antialias: high, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, high ? 2 : 1.25));
   renderer.setSize(innerWidth, innerHeight);
@@ -40,7 +41,7 @@ async function boot() {
   setLoading('Loading photo textures…', 55); await nextFrame();
   await applyPhotoTextures(WORLD);
   setLoading('Calling the crew…', 70); await nextFrame();
-  for (const k of ['chad', 'kev', 'mo']) { CREW[k] = new Person({ ...CREW_SPECS[k], ...(k === 'mo' ? { phone: true, cash: false } : {}) }); scene.add(CREW[k].root); }
+  for (const k of ['kev', 'mo']) { CREW[k] = new Person({ ...CREW_SPECS[k], ...(k === 'mo' ? { phone: true, cash: false } : {}) }); scene.add(CREW[k].root); }
   setLoading('Carrying the couch downstairs…', 82); await nextFrame();
   await loadSofa();
   composer = new EffectComposer(renderer);
@@ -81,7 +82,11 @@ async function applyPhotoTextures(W) {
 async function loadSofa() {
   try {
     const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-    const gltf = await new GLTFLoader().loadAsync('assets/sofa.glb');
+    // .glb when served from the repo; a base64 .js module where only scripts are served
+    let buf = null;
+    try { const r = await fetch('assets/sofa.glb'); if (r.ok) buf = await r.arrayBuffer(); } catch (e) { /* fall through */ }
+    if (!buf) { const m = await import('./assets/sofa.js'); const b = atob(m.default); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); buf = u.buffer; }
+    const gltf = await new GLTFLoader().parseAsync(buf, '');
     const sofa = gltf.scene;
     const box = new THREE.Box3().setFromObject(sofa), size = box.getSize(new THREE.Vector3());
     const s = 2.0 / Math.max(size.x, size.z);
@@ -107,29 +112,12 @@ function onResize() {
 // ---------- crew ----------
 function placeCrew() {
   const o = S.owned;
-  const chad = CREW.chad;
-  if (o.couchTV) { chad.root.position.set(2.45, 0, 0.6); chad.root.rotation.y = Math.PI / 2; chad.setState('couch'); }
-  else { chad.root.position.set(1.0, 0, -1.05); chad.root.rotation.y = -0.6; chad.setState('phone'); }
   CREW.kev.root.visible = !!o.kev;
   CREW.kev.root.position.set(WORLD.seats.kev.x, 0, WORLD.seats.kev.z); CREW.kev.root.rotation.y = -Math.PI / 2; CREW.kev.setState('type');
   CREW.mo.root.visible = !!o.mo;
-  CREW.mo.root.position.set(3.85, 0, -0.25); CREW.mo.root.rotation.y = -Math.PI / 2 - 0.5; CREW.mo.setState('phone');
+  CREW.mo.root.position.set(3.75, 0, -1.7); CREW.mo.root.rotation.y = -Math.PI / 2; CREW.mo.setState('phone');
 }
 const CREW_LINES = {
-  chad: {
-    intro: 'Bro. BRO. Memecoins. You make a coin, it\'s a meme, people buy it because other people are buying it. We launch one on PumpBin, post about it on Chirp, and ride the wave.',
-    tip: () => {
-      if (S.followers < 300) return `Real talk, nobody's buying from an account with ${S.followers} followers. Shitpost. Post memes. Build the account first.`;
-      if (S.sol < 0.05 && S.cash < 5) return 'We\'re broke broke. Next coin has to hit.';
-      if (S.sol < 0.05) return 'Out of SOL? Buy a little in the Wallet app and run it back.';
-      if (LIVE.some((c) => c._mood === 'pump')) return 'IT\'S PUMPING. Post again while it\'s hot!';
-      if (S.cred < 0.7) return 'Bro, people don\'t trust us right now. Maybe run a real one for a bit.';
-      return pick([`Everybody's on ${S.meta} coins today. Ride the meta.`, 'Coins that don\'t rug keep paying creator fees. Just saying.', 'If a coin dies, close it and launch the next one. Most coins die.', 'Pay a KOL when you\'ve got SOL. They dump on their followers but the attention is real.']);
-    },
-    topics: [['tip', 'What\'s the play?'], ['how', 'How do I make money?'], ['rug', 'Should we rug?'], ['bye', 'Later']],
-    how: 'Launch a coin, buy the first bag yourself, then post. Followers see it and some buy. You earn creator fees on every trade, and you can sell some of your bag into the pump. Cash out SOL to dollars and buy upgrades.',
-    rug: 'Dumping the whole bag pays more, for sure. But the holders will call us out and people unfollow. Fewer followers means weaker launches next time. Your call, boss.',
-  },
   kev: {
     intro: 'Custom tokens are ready. You seed the pool yourself, so you hold the LP tokens. Keep them, lock them, or burn them.',
     tip: () => pick(['Burn the LP and buyers relax. Keep it and RugRadar screams "not locked".', 'A short lock buys trust for a few minutes. When it expires, the LP is yours again. Everyone knows that, though.', 'Bigger pool, bigger moves needed to pump it. Smaller pool, faster chart.']),
@@ -160,16 +148,14 @@ function dialogTopic(t) {
   CREW[key].say(3200);
   UI.openDialog(CREW[key], text, L.topics);
 }
+BUS.addEventListener('bought', () => { WORLD.applyItems(S.owned); placeCrew(); saveGame(); });
 function crewReact(type, coin) {
-  const chad = CREW.chad;
-  const say = (p, text, emote) => { p.say(2600); if (emote) p.doEmote(emote, 2600); UI.subtitle(p.spec.name, text); };
-  if (type === 'graduated') say(chad, `$${coin.ticker} GRADUATED! WE'RE ON THE DEX!`, 'cheer');
-  else if (type === 'koth') say(chad, 'King of the Hill, baby!', 'cheer');
-  else if (type === 'viral') say(chad, 'We\'re going viral bro!!', 'cheer');
-  else if (type === 'dead') say(chad, `RIP $${coin.ticker}. Next one.`, 'shrug');
-  else if (type === 'whale' && chance(0.5)) say(chad, 'WHALE ALERT 🐋', 'point');
+  if (type === 'graduated') text('Chad', `$${coin.ticker} GRADUATED!! WE'RE ON THE DEX BABY`);
+  else if (type === 'koth' && chance(0.6)) text('Chad', `$${coin.ticker} is king of the hill on PumpBin 👑`);
+  else if (type === 'viral') text('Chad', 'we are going VIRAL bro');
+  else if (type === 'dead' && chance(0.5)) text('Chad', `rip $${coin.ticker}. next one`);
+  else if (type === 'whale' && chance(0.35)) text('Chad', 'WHALE just aped 🐋');
 }
-BUS.addEventListener('rugged', (e) => { const p = CREW.chad; p.doEmote('facepalm', 3000); p.say(2500); UI.subtitle('Chad', pick(['Bro… the Tele chat is NOT happy.', 'They\'re posting our wallet everywhere.', 'Money\'s money, I guess.'])); });
 
 // ---------- interactions ----------
 function interactables() {
@@ -272,7 +258,7 @@ function updateScreens(dt) {
   const m2 = S_.m2;
   if (m2 && WORLD.items.monitor2.visible) {
     const ctx = m2.ctx, w = m2.canvas.width, hh = m2.canvas.height;
-    ctx.fillStyle = '#0f1620'; ctx.fillRect(0, 0, w, hh);
+    ctx.fillStyle = '#0c1016'; ctx.fillRect(0, 0, w, hh);
     ctx.font = '15px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     const msgs = c ? c.chat.slice(-12) : [];
     msgs.forEach((x, i) => { ctx.fillStyle = '#5aa9ff'; ctx.fillText(x.who.slice(0, 12), 10, 8 + i * 22); ctx.fillStyle = '#d8dee8'; ctx.fillText(x.text.slice(0, 34), 130, 8 + i * 22); });
@@ -281,10 +267,15 @@ function updateScreens(dt) {
   const m3 = S_.m3;
   if (m3 && WORLD.items.monitor3.visible) {
     const ctx = m3.ctx, w = m3.canvas.width, hh = m3.canvas.height;
-    ctx.fillStyle = '#0b0b0f'; ctx.fillRect(0, 0, w, hh);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 20px sans-serif'; ctx.fillText(`@${S.handle}  ·  ${fmtNum(S.followers)} followers`, 12, 10);
-    S.posts.slice(0, 5).forEach((p, i) => { ctx.fillStyle = '#cfd6e2'; ctx.font = '15px sans-serif'; ctx.fillText(p.text.slice(0, 44), 12, 48 + i * 48); ctx.fillStyle = '#7d8696'; ctx.fillText(`♥ ${fmtNum(p.likes)}  🔁 ${fmtNum(p.reposts)}`, 12, 70 + i * 48); });
+    ctx.fillStyle = '#0c1016'; ctx.fillRect(0, 0, w, hh);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffb547'; ctx.font = '800 18px Manrope, sans-serif'; ctx.fillText('THE TRENCHES', 14, 20);
+    ECO.filter((c) => c.isLive()).sort((a, b) => b.mcapSol() - a.mcapSol()).slice(0, 6).forEach((c, i) => {
+      const y = 52 + i * 38;
+      ctx.fillStyle = '#e8edf4'; ctx.font = '700 16px Manrope, sans-serif'; ctx.fillText('$' + c.ticker, 14, y);
+      ctx.fillStyle = '#a3adbd'; ctx.font = '500 15px "JetBrains Mono", monospace'; ctx.fillText(fmtUSD(c.mcapSol() * S.solPrice, { compact: true }), 200, y);
+      ctx.fillStyle = c._mood === 'dip' || c._mood === 'devsold' ? '#ff4d61' : '#1fd18a'; ctx.fillRect(330, y - 3, Math.min(160, c.progress() * 160), 6);
+    });
     m3.tex.needsUpdate = true;
   }
   const tv = S_.tv;
@@ -378,7 +369,7 @@ function startPlaying(isNew) {
   if (isNew) {
     player.setStand(new THREE.Vector3(-0.4, 0, -0.9), Math.PI * 0.92);
     G.mode = 'modal';
-    UI.modal(`<h2>3:07 AM</h2><p>Mom's basement. <b>0.3 SOL</b> and <b>$25</b> to your name. 40 followers, and twelve of them are bots.</p><p>Chad says he found the play: memecoins. Launch them, post about them, grow an audience. Run them honestly and earn fees, or rug them for a quick payday and watch your followers walk.</p><p class="mut">Start at the PC on the north wall. Talk to Chad if you get stuck.</p>`, [['go', 'Let\'s get it', 'primary']], () => { G.mode = 'walk'; player.lock(); });
+    UI.modal(`<h2>3:07 AM</h2><p>Mom's basement. <b>0.3 SOL</b> and <b>$25</b> to your name. 40 followers, and twelve of them are bots.</p><p>Chad keeps texting about memecoins. Launch them, post about them, grow an audience, and trade other devs' coins in the Trenches. Run them honestly and earn fees, or rug them and watch your followers walk.</p><p class="mut">Start at the PC on the north wall. Press Tab for your phone.</p>`, [['go', 'Let\'s get it', 'primary']], () => { G.mode = 'walk'; player.lock(); });
   } else player.lock();
 }
 function onMenuClick(e) {
@@ -388,7 +379,7 @@ function onMenuClick(e) {
   if (a === 'continue') { if (loadGame()) startPlaying(false); else { newGame(); startPlaying(true); } }
   else if (a === 'new') {
     if (hasSave() && !b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Overwrite your save? Click again'; return; }
-    wipeSave(); newGame(); startPlaying(true);
+    wipeSave(); newGame(); UI.draft = UI.newDraft(); startPlaying(true);
   }
   else if (a === 'settings') showSettings(G.started ? 'pause' : 'title');
   else if (a === 'controls') showControls(G.started ? 'pause' : 'title');
@@ -493,6 +484,6 @@ function loop(now) {
 
 // test hook (only with #debug in the URL)
 if (location.hash.includes('debug')) {
-  window.__rug = { get S() { return S; }, get LIVE() { return LIVE; }, get G() { return G; }, UI, CREW, sitAtPC, leavePC, interact, launchCoin, postChirp, devSell, closeCoin, gameTick, cashOut, buyItem, trySleep, placeCrew,
+  window.__rug = { get S() { return S; }, get LIVE() { return LIVE; }, get ECO() { return ECO; }, get G() { return G; }, UI, tradeBuy, devBuyMore, spawnNpcCoin, CREW, sitAtPC, leavePC, interact, launchCoin, postChirp, devSell, closeCoin, gameTick, cashOut, buyItem, trySleep, placeCrew,
     player: () => player, camera: () => camera, world: () => WORLD };
 }

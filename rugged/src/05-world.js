@@ -270,18 +270,21 @@ function buildWorld(scene, Q) {
   const DESK = { x: -1.55, z: -3.6, top: 0.76 };
   W.DESK = DESK;
   {
-    // an old door slab on two sawhorses
+    // clean modern desk: walnut top, black steel frame, felt desk mat
     const desk = group(DESK.x, 0, DESK.z);
     W.items.deskBasic = desk;
-    const slab = rbox(1.9, 0.04, 0.78, 0.008, M.door, 0, DESK.top - 0.02, 0, desk);
-    const hole = mesh(new THREE.CircleGeometry(0.028, 20), M.black, 0.84, DESK.top + 0.0005, 0.2, desk, false, false); hole.rotation.x = -Math.PI / 2;
-    for (const sx of [-0.7, 0.7]) {
-      const sh = group(sx, 0, 0, desk);
-      box(0.08, 0.06, 0.7, M.pine, 0, DESK.top - 0.07, 0, sh);
-      for (const s of [-1, 1]) for (const zz of [-0.28, 0.28]) {
-        const leg = box(0.05, 0.76, 0.05, M.pine, s * 0.12, 0.36, zz, sh); leg.rotation.z = s * 0.2;
-      }
+    const walnut = std({ ...T.oak, color: 0x7a5a42, roughness: 0.55 });
+    const frame = std({ color: 0x16181d, roughness: 0.35, metalness: 0.8 });
+    rbox(1.9, 0.035, 0.78, 0.012, walnut, 0, DESK.top - 0.0175, 0, desk);
+    for (const sx of [-0.86, 0.86]) {
+      box(0.05, DESK.top - 0.035, 0.05, frame, sx, (DESK.top - 0.035) / 2, -0.3, desk);
+      box(0.05, DESK.top - 0.035, 0.05, frame, sx, (DESK.top - 0.035) / 2, 0.3, desk);
+      box(0.05, 0.04, 0.66, frame, sx, 0.03, 0, desk);
     }
+    box(1.72, 0.05, 0.04, frame, 0, DESK.top - 0.06, -0.3, desk);
+    const mat = rbox(0.9, 0.004, 0.36, 0.02, std({ color: 0x1b1d22, roughness: 0.95 }), -0.02, DESK.top + 0.002, 0.24, desk);
+    // cable tray glow under the desk
+    const under = new THREE.PointLight(0xffb070, 0.25, 1.4, 2); under.position.set(0, 0.5, -0.2); desk.add(under);
     collide(DESK.x - 0.97, DESK.z - 0.42, DESK.x + 0.97, DESK.z + 0.42);
     W.interact.push({ id: 'pc', pos: new THREE.Vector3(DESK.x, 1.0, DESK.z + 0.3), r: 1.7, label: () => 'Use PC', action: 'pc' });
 
@@ -290,9 +293,10 @@ function buildWorld(scene, Q) {
       const g = group(x, DESK.top, 0.05, parent);
       g.rotation.y = rotY;
       const [w, h] = size;
-      rbox(0.18, 0.012, 0.14, 0.004, M.plastic, 0, 0.006, 0, g);
-      box(0.03, 0.2, 0.025, M.plastic, 0, 0.1, -0.03, g);
-      const body = rbox(w + 0.025, h + 0.025, 0.035, 0.008, M.plastic, 0, 0.08 + h / 2 + 0.02, -0.01, g);
+      const alu = std({ color: 0x2a2d33, roughness: 0.35, metalness: 0.85 });
+      rbox(0.2, 0.01, 0.15, 0.004, alu, 0, 0.005, 0, g);
+      box(0.03, 0.2, 0.02, alu, 0, 0.1, -0.035, g);
+      const body = rbox(w + 0.012, h + 0.012, 0.022, 0.006, std({ color: 0x0b0c0f, roughness: 0.4, metalness: 0.3 }), 0, 0.08 + h / 2 + 0.02, -0.006, g);
       const cv = newCanvas(512, Math.round(512 * h / w)); const ctx = cv.getContext('2d');
       ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, cv.width, cv.height);
       const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
@@ -307,10 +311,17 @@ function buildWorld(scene, Q) {
     W.items.monitor2 = makeMonitor('m2', -0.6, 0.35, mon);
     W.items.monitor3 = makeMonitor('m3', 0.6, -0.35, mon);
     // keyboard & mouse
-    const kb = rbox(0.44, 0.022, 0.14, 0.006, M.plastic, -0.02, DESK.top + 0.011, 0.24, desk);
-    const keyMat = std({ color: 0x3a3d46, roughness: 0.6 });
-    for (let r = 0; r < 5; r++) for (let c = 0; c < 15; c++) box(0.024, 0.008, 0.022, keyMat, -0.02 - 0.2 + c * 0.0285, DESK.top + 0.026, 0.24 - 0.052 + r * 0.026, desk);
-    rbox(0.06, 0.025, 0.1, 0.012, M.plastic, 0.32, DESK.top + 0.0125, 0.26, desk);
+    const kbBasic = group(0, 0, 0, desk); W.items.kbBasic = kbBasic;
+    rbox(0.42, 0.016, 0.13, 0.006, std({ color: 0xd9dbe0, roughness: 0.45, metalness: 0.2 }), -0.02, DESK.top + 0.009, 0.24, kbBasic);
+    const keyMat = std({ color: 0xf2f3f5, roughness: 0.5 });
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 15; c++) box(0.023, 0.005, 0.021, keyMat, -0.02 - 0.2 + c * 0.0285, DESK.top + 0.019, 0.24 - 0.052 + r * 0.026, kbBasic);
+    const kbRgb = group(0, 0, 0, desk); W.items.mechKeyboard = kbRgb;
+    rbox(0.44, 0.03, 0.14, 0.006, std({ color: 0x15161a, roughness: 0.4, metalness: 0.5 }), -0.02, DESK.top + 0.015, 0.24, kbRgb);
+    W.kbGlow = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xff00ff, emissiveIntensity: 2.2 });
+    mesh(new THREE.BoxGeometry(0.44, 0.004, 0.14), W.kbGlow, -0.02, DESK.top + 0.002, 0.24, kbRgb, false, false);
+    const capMat = std({ color: 0x2a2c33, roughness: 0.55 });
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 15; c++) rbox(0.024, 0.014, 0.022, 0.004, capMat, -0.02 - 0.2 + c * 0.0285, DESK.top + 0.036, 0.24 - 0.052 + r * 0.026, kbRgb);
+    rbox(0.062, 0.024, 0.11, 0.014, std({ color: 0x15161a, roughness: 0.35 }), 0.32, DESK.top + 0.012, 0.26, desk);
     // energy drink cans
     const canCv = newCanvas(256, 128), cc = canCv.getContext('2d');
     cc.fillStyle = '#121418'; cc.fillRect(0, 0, 256, 128); cc.fillStyle = '#7dff3a'; cc.font = '900 64px Impact, sans-serif'; cc.fillText('VOLT', 60, 90);
@@ -323,7 +334,6 @@ function buildWorld(scene, Q) {
       W.cans.push(c);
     }
     // crushed can + pizza box on the floor
-    const pz = rbox(0.42, 0.04, 0.42, 0.005, M.cardboard, 0.4, 0.02, 0.75, desk); pz.rotation.y = 0.4;
     // desk lamp
     const lamp = group(0.8, DESK.top, -0.22, desk);
     cyl(0.07, 0.08, 0.02, M.black, 0, 0.01, 0, lamp);
@@ -339,9 +349,9 @@ function buildWorld(scene, Q) {
     // beige office tower (replaced by gaming PC upgrade)
     const tower = group(1.15, 0, 0.05, desk);
     W.items.towerBasic = tower;
-    rbox(0.19, 0.42, 0.44, 0.01, M.beige, 0, 0.21, 0, tower);
-    box(0.15, 0.04, 0.005, std({ color: 0x777064 }), 0, 0.33, 0.222, tower);
-    mesh(new THREE.CircleGeometry(0.008, 10), new THREE.MeshBasicMaterial({ color: 0x3cff6a }), 0.05, 0.15, 0.2215, tower, false, false);
+    rbox(0.2, 0.4, 0.4, 0.012, std({ color: 0x1a1c21, roughness: 0.35, metalness: 0.6 }), 0, 0.2, 0, tower);
+    for (let i = 0; i < 7; i++) box(0.12, 0.004, 0.003, std({ color: 0x2c2f36 }), 0, 0.12 + i * 0.03, 0.2015, tower);
+    mesh(new THREE.PlaneGeometry(0.004, 0.3), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }), 0.085, 0.2, 0.2016, tower, false, false);
     // gaming PC with glass side and RGB fans
     const gpc = group(1.15, 0, 0.0, desk);
     W.items.gamingPC = gpc;
@@ -394,7 +404,7 @@ function buildWorld(scene, Q) {
     const inner = mesh(new THREE.PlaneGeometry(0.44, 0.74), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xdff4ff, emissiveIntensity: 0.6 }), 0, 0.41, 0.255, g, false, false);
     W.fridgeDoor = hinge;
     // stickers
-    const st = newCanvas(128); const sc = st.getContext('2d'); drawMemeIcon(sc, 'dog', 30, 128, 4);
+    const st = newCanvas(128); const sc = st.getContext('2d'); drawMemeIcon(sc, 'dogwifhat', 30, 128, 4);
     const sticker = mesh(new THREE.PlaneGeometry(0.12, 0.12), new THREE.MeshStandardMaterial({ map: toTex(st), transparent: true, roughness: 0.4 }), 0.3, 0.58, 0.022, hinge, false, false);
     collide(-0.42, -3.92, 0.12, -3.34);
     W.interact.push({ id: 'fridge', pos: new THREE.Vector3(-0.15, 0.7, -3.3), r: 1.4, label: () => 'Grab an energy drink', action: 'fridge' });
@@ -504,11 +514,11 @@ function buildWorld(scene, Q) {
   // LED strip along the joist above the desk
   {
     const g = group(0, 0, 0); W.items.ledStrip = g;
-    W.ledMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x8a3dff, emissiveIntensity: 4 });
+    W.ledMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x8a3dff, emissiveIntensity: 2.2 });
     mesh(new THREE.BoxGeometry(6.5, 0.012, 0.012), W.ledMat, -0.5, ROOM.h - 0.25, -3.75, g, false, false);
     mesh(new THREE.BoxGeometry(0.012, 0.012, 7.5), W.ledMat, 4.95, ROOM.h - 0.25, 0.2, g, false, false);
     W.ledLights = [];
-    for (const [x, z] of [[-2.5, -3.6], [0.5, -3.6], [4.8, 0.5], [4.8, 2.8]]) { const l = new THREE.PointLight(0x8a3dff, 0.7, 3.2, 2); l.position.set(x, ROOM.h - 0.35, z); g.add(l); W.ledLights.push(l); }
+    for (const [x, z] of [[-2.5, -3.6], [0.5, -3.6], [4.8, 0.5], [4.8, 2.8]]) { const l = new THREE.PointLight(0x8a3dff, 0.32, 3.2, 2); l.position.set(x, ROOM.h - 0.35, z); g.add(l); W.ledLights.push(l); }
   }
   // neon sign above the desk
   {
@@ -545,9 +555,9 @@ function buildWorld(scene, Q) {
     const g = group(DESK.x + 0.95, 0, DESK.z + 0.25); W.items.ringLight = g;
     cyl(0.01, 0.01, 1.4, M.black, 0, 0.7, 0, g, 8);
     for (let i = 0; i < 3; i++) { const l = cyl(0.008, 0.008, 0.35, M.black, Math.sin(i * 2.1) * 0.12, 0.08, Math.cos(i * 2.1) * 0.12, g, 6); l.rotation.set(Math.cos(i * 2.1) * 0.9, 0, -Math.sin(i * 2.1) * 0.9); }
-    const ring = mesh(new THREE.TorusGeometry(0.2, 0.02, 12, 48), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4e8, emissiveIntensity: 2.5 }), 0, 1.45, 0, g, false, false);
+    const ring = mesh(new THREE.TorusGeometry(0.2, 0.02, 12, 48), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4e8, emissiveIntensity: 0.9 }), 0, 1.45, 0, g, false, false);
     ring.rotation.y = -0.6;
-    const rl = new THREE.PointLight(0xfff4e8, 0.7, 2.5, 2); rl.position.set(-0.1, 1.45, 0.2); g.add(rl);
+    const rl = new THREE.PointLight(0xfff4e8, 0.4, 2.5, 2); rl.position.set(-0.1, 1.45, 0.2); g.add(rl);
   }
   // couch + TV
   {
@@ -643,6 +653,132 @@ function buildWorld(scene, Q) {
     W.seats.kev = new THREE.Vector3(-3.15, 0.47, -1.55);
   }
 
+  // ---------- flex & comfort upgrades ----------
+  const gold = std({ color: 0xffc34a, roughness: 0.18, metalness: 1 });
+  const chromeM = M.chrome;
+  // espresso machine on the fridge
+  {
+    const g = group(-0.15, 0.82, -3.66); W.items.espresso = g;
+    rbox(0.26, 0.3, 0.3, 0.02, std({ color: 0xc9ccd2, roughness: 0.25, metalness: 0.9 }), 0, 0.15, 0, g);
+    rbox(0.22, 0.04, 0.2, 0.01, M.black, 0, 0.02, 0.05, g);
+    cyl(0.03, 0.03, 0.02, M.black, 0, 0.2, 0.16, g, 16);
+    box(0.012, 0.012, 0.08, M.black, 0, 0.2, 0.2, g);
+    const cup = cyl(0.025, 0.02, 0.05, std({ color: 0xffffff, roughness: 0.3 }), 0, 0.065, 0.12, g, 16);
+    mesh(new THREE.CircleGeometry(0.012, 12), new THREE.MeshBasicMaterial({ color: 0x40ff9a }), 0.08, 0.26, 0.151, g, false, false);
+  }
+  // reef aquarium (south wall)
+  {
+    const g = group(0.75, 0, 3.66); W.items.aquarium = g;
+    rbox(1.0, 0.72, 0.42, 0.01, std({ color: 0x15171c, roughness: 0.4 }), 0, 0.36, 0, g);
+    const water = new THREE.MeshPhysicalMaterial({ color: 0x3aa9ff, emissive: 0x0a4a88, emissiveIntensity: 0.9, transparent: true, opacity: 0.55, roughness: 0.05 });
+    mesh(new THREE.BoxGeometry(0.96, 0.5, 0.38), water, 0, 0.98, 0, g, false, false);
+    box(1.0, 0.03, 0.42, M.black, 0, 1.245, 0, g);
+    box(0.96, 0.06, 0.38, std({ color: 0xe8d8b0, roughness: 1 }), 0, 0.76, 0, g);
+    W.fish = [];
+    for (let i = 0; i < 6; i++) {
+      const f = mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshStandardMaterial({ color: [0xff7a2e, 0xffd23a, 0x3ef0ff, 0xff4d8a, 0xffffff, 0x8a7bff][i], emissive: 0x111111, roughness: 0.3 }), 0, 0.9 + (i % 3) * 0.08, 0, g, false, false);
+      f.scale.set(1.8, 1, 0.6); f.userData = { ph: i * 1.3, sp: 0.4 + (i % 3) * 0.15 };
+      W.fish.push(f);
+    }
+    for (let i = 0; i < 5; i++) { const c = cyl(0.008, 0.012, 0.18 + (i % 2) * 0.1, std({ color: [0xff6a8a, 0x8af06b, 0xffb547][i % 3], roughness: 0.6 }), -0.4 + i * 0.2, 0.86, (i % 2 ? 0.08 : -0.08), g, 6); c.rotation.z = (i - 2) * 0.12; }
+    const al = new THREE.PointLight(0x3aa9ff, 0.8, 2.8, 2); al.position.set(0, 1.2, -0.3); g.add(al);
+    W.aquaCollider = [0.22, 3.42, 1.28, 3.98];
+  }
+  // vending machine (south wall)
+  {
+    const g = group(-1.75, 0, 3.55); g.rotation.y = Math.PI; W.items.vending = g;
+    rbox(0.9, 1.85, 0.8, 0.02, std({ color: 0xc8202f, roughness: 0.35, metalness: 0.4 }), 0, 0.925, 0, g);
+    const cv = newCanvas(256, 420), c = cv.getContext('2d');
+    c.fillStyle = '#0b0f16'; c.fillRect(0, 0, 256, 420);
+    const cols = ['#7dff3a', '#3ef0ff', '#ffb547', '#ff4d8a'];
+    for (let r = 0; r < 5; r++) for (let k = 0; k < 4; k++) { c.fillStyle = cols[(r + k) % 4]; c.fillRect(18 + k * 58, 22 + r * 78, 40, 56); c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(22 + k * 58, 26 + r * 78, 8, 48); }
+    const front = mesh(new THREE.PlaneGeometry(0.56, 1.1), new THREE.MeshBasicMaterial({ map: toTex(cv), toneMapped: false }), -0.1, 1.15, -0.402, g, false, false);
+    front.rotation.y = Math.PI; front.material.color.setScalar(0.9);
+    const lc = newCanvas(256, 64), lx = lc.getContext('2d'); lx.fillStyle = '#c8202f'; lx.fillRect(0, 0, 256, 64); lx.fillStyle = '#fff'; lx.font = '900 40px Impact, sans-serif'; lx.textAlign = 'center'; lx.fillText('VOLT', 128, 48);
+    const logo = mesh(new THREE.PlaneGeometry(0.56, 0.14), new THREE.MeshBasicMaterial({ map: toTex(lc), toneMapped: false }), -0.1, 1.82, -0.402, g, false, false); logo.rotation.y = Math.PI;
+    box(0.18, 0.4, 0.02, M.black, 0.3, 1.2, -0.405, g);
+    box(0.6, 0.14, 0.02, M.black, -0.1, 0.32, -0.405, g);
+    const vl = new THREE.PointLight(0x9fd0ff, 0.5, 2.2, 2); vl.position.set(0, 1.2, -0.7); g.add(vl);
+    W.vendCollider = [-2.22, 3.12, -1.28, 3.98];
+    W.interact.push({ id: 'vending', pos: new THREE.Vector3(-1.75, 1.1, 3.1), r: 1.5, label: () => 'Grab a free VOLT', action: 'fridge', need: 'vending' });
+  }
+  // streaming setup: mic arm, webcam, softbox, ON AIR sign
+  {
+    const g = group(DESK.x, 0, DESK.z); W.items.stream = g;
+    const arm = std({ color: 0x15161a, roughness: 0.4, metalness: 0.6 });
+    cyl(0.012, 0.012, 0.42, arm, -0.7, DESK.top + 0.21, -0.25, g, 10);
+    const a2 = cyl(0.01, 0.01, 0.4, arm, -0.58, DESK.top + 0.42, -0.05, g, 10); a2.rotation.x = 1.0; a2.rotation.z = -0.5;
+    const micm = cyl(0.028, 0.028, 0.13, std({ color: 0x22242a, roughness: 0.5, metalness: 0.5 }), -0.45, DESK.top + 0.36, 0.12, g, 16); micm.rotation.x = 0.4;
+    rbox(0.08, 0.03, 0.03, 0.01, M.black, 0, DESK.top + 0.46, 0.06, g);
+    mesh(new THREE.CircleGeometry(0.01, 12), new THREE.MeshBasicMaterial({ color: 0x3ec5ff }), 0, DESK.top + 0.46, 0.077, g, false, false);
+    const sb = group(1.4, 0, 0.9, g);
+    cyl(0.012, 0.012, 1.5, arm, 0, 0.75, 0, sb, 8);
+    const box2 = rbox(0.42, 0.42, 0.12, 0.02, M.black, 0, 1.55, 0, sb); box2.rotation.y = -0.9;
+    const diff = mesh(new THREE.PlaneGeometry(0.38, 0.38), new THREE.MeshBasicMaterial({ color: 0xfff6ea, toneMapped: false }), 0, 1.55, 0, sb, false, false); diff.rotation.y = -0.9 + Math.PI; diff.position.x -= 0.05; diff.position.z -= 0.04;
+    const sl = new THREE.PointLight(0xfff2e0, 0.9, 3.2, 2); sl.position.set(-0.2, 1.5, -0.2); sb.add(sl);
+    const oc = newCanvas(256, 96), ox = oc.getContext('2d'); ox.fillStyle = '#1a0306'; ox.fillRect(0, 0, 256, 96); ox.shadowColor = '#ff2a3a'; ox.shadowBlur = 18; ox.fillStyle = '#ff4d5e'; ox.font = '900 54px Impact, sans-serif'; ox.textAlign = 'center'; ox.fillText('ON AIR', 128, 68);
+    const onair = mesh(new THREE.PlaneGeometry(0.42, 0.16), new THREE.MeshBasicMaterial({ map: toTex(oc), toneMapped: false }), 0.95, 1.55, ROOM.z0 - DESK.z + 0.03, g, false, false);
+    onair.material.color.setScalar(1.6);
+  }
+  // display case: gold chain + watch
+  {
+    const g = group(-0.55, 0, 3.6); W.items.showcase = g;
+    rbox(0.5, 0.95, 0.4, 0.01, std({ color: 0x15171c, roughness: 0.35, metalness: 0.5 }), 0, 0.475, 0, g);
+    const glass = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.02, metalness: 0, clearcoat: 1 });
+    mesh(new THREE.BoxGeometry(0.46, 0.4, 0.36), glass, 0, 1.15, 0, g, false, false);
+    box(0.44, 0.02, 0.34, std({ color: 0x2a0d14, roughness: 1 }), 0, 0.96, 0, g);
+    const ch = group(0, 0, 0, g); W.items.chain = ch;
+    const chain = mesh(new THREE.TorusGeometry(0.09, 0.012, 10, 48), gold, -0.08, 1.0, 0, ch); chain.rotation.x = Math.PI / 2; chain.scale.y = 1.3;
+    mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.008, 24), gold, -0.08, 0.98, 0.11, ch);
+    const wt = group(0, 0, 0, g); W.items.rolex = wt;
+    const face = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.012, 32), gold, 0.11, 1.03, 0, wt); face.rotation.x = 0.6;
+    const dial = mesh(new THREE.CircleGeometry(0.024, 24), std({ color: 0x0e3b2a, roughness: 0.2 }), 0.11, 1.036, 0.005, wt, false, false); dial.rotation.x = 0.6 - Math.PI / 2;
+    const band = mesh(new THREE.TorusGeometry(0.035, 0.008, 8, 24), gold, 0.11, 1.0, 0, wt); band.rotation.x = 0.6;
+    const cl = new THREE.PointLight(0xfff0c0, 0.5, 1.2, 2); cl.position.set(0, 1.32, 0); g.add(cl);
+    W.caseCollider = [-0.82, 3.38, -0.28, 3.98];
+  }
+  // diamond hands statue
+  {
+    const g = group(2.1, 0, 3.55); W.items.statue = g;
+    cyl(0.26, 0.3, 0.9, std({ color: 0xece8e0, roughness: 0.4 }), 0, 0.45, 0, g, 32);
+    const dmat = new THREE.MeshPhysicalMaterial({ color: 0xbfe8ff, roughness: 0.03, metalness: 0, transmission: 0.6, thickness: 0.4, ior: 2.4, clearcoat: 1, emissive: 0x2a5a7a, emissiveIntensity: 0.4 });
+    for (const sx of [-1, 1]) {
+      const hand = group(sx * 0.1, 0.92, 0, g); hand.rotation.z = sx * -0.25;
+      rbox(0.13, 0.17, 0.07, 0.03, dmat, 0, 0.12, 0, hand);
+      for (let i = 0; i < 4; i++) rbox(0.026, 0.11, 0.03, 0.012, dmat, -0.045 + i * 0.03, 0.26, 0, hand);
+      const th = rbox(0.03, 0.08, 0.03, 0.012, dmat, sx * -0.08, 0.12, 0.02, hand); th.rotation.z = sx * 0.7;
+    }
+    const gem = mesh(new THREE.OctahedronGeometry(0.07), dmat, 0, 1.3, 0, g); gem.scale.y = 1.3;
+    W.gem = gem;
+    const dl = new THREE.PointLight(0x9fdcff, 0.7, 2, 2); dl.position.set(0, 1.5, -0.3); g.add(dl);
+    W.statueCollider = [1.8, 3.25, 2.4, 3.9];
+  }
+  // golden toilet (east wall)
+  {
+    const g = group(4.6, 0, -0.5); g.rotation.y = -Math.PI / 2; W.items.toilet = g;
+    cyl(0.16, 0.12, 0.38, gold, 0, 0.19, 0.05, g, 28);
+    const bowl = mesh(new THREE.TorusGeometry(0.17, 0.045, 12, 32), gold, 0, 0.4, 0.07, g); bowl.rotation.x = Math.PI / 2; bowl.scale.y = 1.25;
+    rbox(0.42, 0.42, 0.16, 0.04, gold, 0, 0.62, -0.18, g);
+    const lid = rbox(0.38, 0.02, 0.44, 0.04, gold, 0, 0.45, 0.06, g);
+    W.toiletCollider = [4.3, -0.82, 4.98, -0.18];
+  }
+  // framed Lambo photo above the bed + keys on the desk
+  {
+    const g = group(0, 0, 0); W.items.lambo = g;
+    const cv = newCanvas(512, 320), c = cv.getContext('2d');
+    const sky = c.createLinearGradient(0, 0, 0, 320); sky.addColorStop(0, '#ffb07a'); sky.addColorStop(1, '#5a3a7a'); c.fillStyle = sky; c.fillRect(0, 0, 512, 320);
+    c.fillStyle = '#3a6a3a'; c.fillRect(0, 220, 512, 100);
+    c.fillStyle = '#e8e2d6'; c.fillRect(300, 90, 180, 130); c.fillStyle = '#7a3a2a'; c.beginPath(); c.moveTo(290, 95); c.lineTo(390, 40); c.lineTo(490, 95); c.fill();
+    c.fillStyle = '#ffd23a'; c.beginPath(); c.moveTo(40, 250); c.lineTo(110, 205); c.lineTo(230, 195); c.lineTo(330, 225); c.lineTo(335, 255); c.lineTo(40, 262); c.fill();
+    c.fillStyle = '#1a1a1a'; for (const x of [95, 280]) { c.beginPath(); c.arc(x, 262, 24, 0, 7); c.fill(); }
+    c.fillStyle = '#fff'; c.font = 'italic 22px Georgia, serif'; c.fillText("parked on mom's lawn", 24, 34);
+    const ph = mesh(new THREE.PlaneGeometry(0.9, 0.56), new THREE.MeshStandardMaterial({ map: toTex(cv), roughness: 0.4 }), ROOM.x1 - 0.03, 1.55, 3.0, g, false, true);
+    ph.rotation.y = -Math.PI / 2;
+    const fr = box(0.03, 0.62, 0.96, gold, ROOM.x1 - 0.045, 1.55, 3.0, g);
+    const key = rbox(0.03, 0.01, 0.06, 0.006, std({ color: 0x111111, metalness: 0.5 }), DESK.x + 0.55, DESK.top + 0.006, DESK.z + 0.25, g);
+    mesh(new THREE.CircleGeometry(0.008, 12), gold, DESK.x + 0.55, DESK.top + 0.0115, DESK.z + 0.25, g, false, false).rotation.x = -Math.PI / 2;
+  }
+
   // ---------- dust motes in the bulb light ----------
   {
     const n = Q.high ? 260 : 90;
@@ -672,6 +808,9 @@ function buildWorld(scene, Q) {
     if (W.serverLeds && Math.random() < 0.3) { const m = pick(W.serverLeds); m.visible = !m.visible; }
     if (W.furnaceFlame) W.furnaceFlame.scale.y = 0.8 + Math.random() * 0.4;
     if (W.dust) { W.dust.rotation.y += dt * 0.01; W.dust.position.y = Math.sin(t * 0.2) * 0.03; }
+    if (W.fish) W.fish.forEach((f) => { const u = f.userData; const a = t * u.sp + u.ph; f.position.x = Math.sin(a) * 0.38; f.position.z = Math.cos(a * 1.7) * 0.1; f.rotation.y = Math.cos(a) > 0 ? 0 : Math.PI; });
+    if (W.gem) W.gem.rotation.y += dt * 0.8;
+    if (W.kbGlow) W.kbGlow.emissive.setHSL((t * 0.12) % 1, 1, 0.5);
     if (W.fridgeDoor) W.fridgeDoor.rotation.y = damp(W.fridgeDoor.rotation.y, W.fridgeOpen > 0 ? -1.6 : 0, 6, dt);
     if (W.fridgeOpen > 0) W.fridgeOpen -= dt;
   };
@@ -683,7 +822,9 @@ function buildWorld(scene, Q) {
     vis('monitor2', has('monitor2')); vis('monitor3', has('monitor3'));
     vis('chairBasic', !has('gamingChair')); vis('gamingChair', has('gamingChair'));
     vis('towerBasic', !has('gamingPC')); vis('gamingPC', has('gamingPC'));
-    for (const k of ['ledStrip', 'neon', 'rug', 'lavaLamp', 'ringLight', 'couchTV', 'miningRig', 'arcade', 'serverRack', 'posters', 'kevDesk']) vis(k, has(k));
+    for (const k of ['ledStrip', 'neon', 'rug', 'lavaLamp', 'ringLight', 'couchTV', 'miningRig', 'arcade', 'serverRack', 'posters', 'kevDesk', 'espresso', 'aquarium', 'vending', 'stream', 'statue', 'toilet', 'lambo', 'chain', 'rolex']) vis(k, has(k));
+    vis('mechKeyboard', has('mechKeyboard')); vis('kbBasic', !has('mechKeyboard'));
+    vis('showcase', has('chain') || has('rolex'));
     vis('mattress', !has('bed')); vis('bed', has('bed'));
     vis('beanbag', !has('couchTV'));
     // dynamic colliders
@@ -693,6 +834,11 @@ function buildWorld(scene, Q) {
     if (has('arcade')) add(W.arcadeCollider);
     if (has('serverRack')) add(W.rackCollider);
     if (has('kevDesk')) add(W.kevCollider);
+    if (has('aquarium')) add(W.aquaCollider);
+    if (has('vending')) add(W.vendCollider);
+    if (has('chain') || has('rolex')) add(W.caseCollider);
+    if (has('statue')) add(W.statueCollider);
+    if (has('toilet')) add(W.toiletCollider);
   };
   W.dynColliders = [];
   return W;
