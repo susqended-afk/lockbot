@@ -171,12 +171,12 @@ function buildWorld(scene, Q) {
       const glass = mesh(new THREE.SphereGeometry(0.045, 20, 14), new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffc27a, emissiveIntensity: 6, roughness: 0.3 }), 0, -0.1, 0, g, false, false);
       const chain = cyl(0.002, 0.002, 0.45, M.chrome, 0.03, -0.3, 0, g, 4);
       const pull = mesh(new THREE.SphereGeometry(0.008, 8, 6), M.chrome, 0.03, -0.53, 0, g);
-      const pl = new THREE.PointLight(0xffb46b, power, 9, 2);
+      const pl = new THREE.PointLight(0xffd3a3, power, 9, 2);
       pl.position.set(x, ROOM.h - 0.36, z);
       R.add(pl);
       let spot = null;
       if (shadows) {
-        spot = new THREE.SpotLight(0xffb46b, power * 1.6, 10, 1.25, 0.65, 2);
+        spot = new THREE.SpotLight(0xffd3a3, power * 1.6, 10, 1.25, 0.65, 2);
         spot.position.set(x, ROOM.h - 0.36, z);
         spot.target.position.set(x, 0, z);
         spot.castShadow = true;
@@ -201,7 +201,7 @@ function buildWorld(scene, Q) {
 
   // ---------- hopper windows (south wall, high) ----------
   {
-    const winMat = new THREE.MeshStandardMaterial({ color: 0x0b1530, emissive: 0x1a2c5c, emissiveIntensity: 0.9, roughness: 0.2 });
+    const winMat = new THREE.MeshStandardMaterial({ color: 0x05070c, emissive: 0x0d1830, emissiveIntensity: 0.55, roughness: 0.15, metalness: 0.2 });
     W.windowMats = [];
     for (const x of [0.4, 2.9]) {
       const g = group(x, 2.05, ROOM.z1 - 0.01);
@@ -331,7 +331,7 @@ function buildWorld(scene, Q) {
     const shade = mesh(new THREE.ConeGeometry(0.07, 0.1, 20, 1, true), std({ color: 0x1c1d22, side: THREE.DoubleSide, roughness: 0.4 }), -0.08, 0.38, 0.05, lamp);
     shade.rotation.z = -0.9;
     const lampBulb = mesh(new THREE.SphereGeometry(0.022, 12, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd9a0, emissiveIntensity: 4 }), -0.1, 0.35, 0.05, lamp, false, false);
-    const lampLight = new THREE.PointLight(0xffd9a0, 0.6, 2.5, 2); lampLight.position.set(-0.12, 0.3, 0.06); lamp.add(lampLight);
+    const lampLight = new THREE.PointLight(0xffd9a0, 0.35, 2.5, 2); lampLight.position.set(-0.12, 0.3, 0.06); lamp.add(lampLight);
     // monitor glow (color follows the chart)
     const glow = new THREE.PointLight(0x6fa8ff, 0.9, 3.2, 2); glow.position.set(0, DESK.top + 0.35, 0.45); desk.add(glow);
     W.lights.screenGlow = glow;
@@ -645,11 +645,11 @@ function buildWorld(scene, Q) {
 
   // ---------- dust motes in the bulb light ----------
   {
-    const n = Q.high ? 500 : 180;
+    const n = Q.high ? 260 : 90;
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { pos[i * 3] = rand(-3.5, 3.5); pos[i * 3 + 1] = rand(0.2, 2.3); pos[i * 3 + 2] = rand(-3.5, 3.5); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const dm = new THREE.PointsMaterial({ color: 0xffe2b0, size: 0.008, transparent: true, opacity: 0.55, depthWrite: false, sizeAttenuation: true });
+    const dm = new THREE.PointsMaterial({ color: 0xffe2b0, size: 0.0035, transparent: true, opacity: 0.3, depthWrite: false, sizeAttenuation: true });
     const pts = new THREE.Points(g, dm); R.add(pts);
     W.dust = pts;
   }

@@ -217,9 +217,11 @@ function postChirp(type, coin) {
   if (pt.variance) q = chance(0.5) ? logRand(0.25, 0.9) : logRand(0.9, 2.6);
   const viral = chance(0.025 + Math.max(0, q - 1.4) * 0.08);
   const viralMult = viral ? rand(4, 14) : 1;
-  const impressions = Math.round((S.followers * rand(0.2, 0.65) + rand(15, 60)) * Math.max(0.3, q) * viralMult * (pt.mult || 1));
+  // small accounts get some algorithmic reach; follow-through is higher when you're new
+  const impressions = Math.round((S.followers * rand(0.2, 0.65) + rand(40, 140)) * Math.max(0.3, q) * viralMult * (pt.mult || 1));
   const likes = Math.round(impressions * rand(0.012, 0.045));
-  let gain = Math.round(impressions * rand(0.003, 0.009) * pt.follow * (S.owned.mo ? 1.25 : 1));
+  const followRate = 0.004 + 0.026 / (1 + S.followers / 500);
+  let gain = Math.max(pt.follow > 0 ? 1 : 0, Math.round(impressions * followRate * rand(0.6, 1.4) * pt.follow * (S.owned.mo ? 1.25 : 1)));
   if (type === 'giveaway') gain = Math.round(20 + S.followers * rand(0.04, 0.08));
   const ratioed = !viral && q < 0.5 && chance(0.35);
   if (ratioed) gain = -Math.round(S.followers * rand(0.005, 0.02));

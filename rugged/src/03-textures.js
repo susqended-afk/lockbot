@@ -130,8 +130,8 @@ function genConcrete(S) {
     const stain = smooth(0.56, 0.74, N.fbm(u + 0.37, v + 0.11, 2, 4));
     const wet = smooth(0.6, 0.7, N2.fbm(u, v, 3, 3));
     const speck = (N2.noise(u * 512, v * 512, 512) > 0.93) ? -0.08 : 0;
-    let b = 0.47 + (n1 - 0.5) * 0.26 + (n2 - 0.5) * 0.14 + speck;
-    b *= 1 - stain * 0.32 - wet * 0.08;
+    let b = 0.5 + (n1 - 0.5) * 0.12 + (n2 - 0.5) * 0.12 + speck * 0.6;
+    b *= 1 - stain * 0.14 - wet * 0.05;
     o[0] = clamp(b * 255 * 1.02, 0, 255); o[1] = clamp(b * 255 * 1.0, 0, 255); o[2] = clamp(b * 255 * 0.95, 0, 255);
     o[3] = n2 * 0.7 + n1 * 0.3; o[4] = clamp(0.88 - stain * 0.25 - wet * 0.3 + (n2 - 0.5) * 0.1, 0.3, 1);
   }, { rough: true, strength: 3 });
