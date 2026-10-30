@@ -7,6 +7,7 @@ const PAGE = "file://" + path.resolve(__dirname, "../EDGE.html");
 let pass = 0, fail = 0;
 const ok = (cond, name, extra = "") => { if (cond) { pass++; console.log("  ✓ " + name); } else { fail++; console.log("  ✗ " + name + (extra ? "  → " + extra : "")); } };
 const near = (a, b, tol = 1e-3) => Math.abs(a - b) <= tol;
+const DFS_BOOKS_IN = (u) => { const bm = u.searchParams.get("bookmakers") || "", rg = u.searchParams.get("regions") || ""; return /prizepicks|underdog|sleeper/.test(bm) || /us_dfs/.test(rg); };
 /* every page gets the same helper, and web fonts are skipped */
 async function prep(page) {
   await page.route(/fonts\.(googleapis|gstatic)/, (r) => r.abort());
@@ -45,6 +46,8 @@ const props = {
   ...nflEvent(), bookmakers: [
     { key: "pinnacle", title: "Pinnacle", markets: [{ key: "player_pass_yds", outcomes: [{ name: "Over", description: "J. Allen", price: -110, point: 255.5 }, { name: "Under", description: "J. Allen", price: -110, point: 255.5 }] }] },
     { key: "draftkings", title: "DraftKings", markets: [{ key: "player_pass_yds", outcomes: [{ name: "Over", description: "J. Allen", price: 110, point: 255.5 }, { name: "Under", description: "J. Allen", price: -140, point: 255.5 }] }] },
+    /* PrizePicks hangs 243.5 — well under Pinnacle's 255.5, so the Over is soft/+EV */
+    { key: "prizepicks", title: "PrizePicks", markets: [{ key: "player_pass_yds", outcomes: [{ name: "Over", description: "J. Allen", price: -119, point: 243.5 }, { name: "Under", description: "J. Allen", price: -119, point: 243.5 }] }] },
   ],
 };
 const SPORTS = [
@@ -330,6 +333,83 @@ async function livePage(browser, opts = {}) {
     await ctx.close();
   }
 
+  /* ============ 5b. DFS pick'em ============ */
+  console.log("\n5b. DFS pick'em");
+  {
+    const page = await browser.newPage();
+    await prep(page);
+    await page.goto(PAGE);
+    const m = await page.evaluate(() => ({
+      be3: dfsBreakeven("prizepicks", 3), be2: dfsBreakeven("prizepicks", 2), beU3: dfsBreakeven("underdog", 3),
+      pb: poissonBinom([0.6, 0.6, 0.6]),
+      powEven: powerEV("prizepicks", [0.6, 0.6, 0.6]), // 5 * .216 - 1
+      flexBad: flexEV("underdog", [0.5, 0.5, 0.5]),
+      exact: (() => { const ev = { markets: [{ key: "k", player: "P", cat: "props", line: 25.5, order: ["Over", "Under"], fair: { p: [0.6, 0.4] } }] }; return sharpProbAtLine(ev, "P", "k", 25.5); })(),
+      interp: (() => { const ev = { markets: [
+        { key: "k", player: "P", cat: "props", line: 24.5, order: ["Over", "Under"], fair: { p: [0.65, 0.35] } },
+        { key: "k", player: "P", cat: "props", line: 26.5, order: ["Over", "Under"], fair: { p: [0.45, 0.55] } }] };
+        return sharpProbAtLine(ev, "P", "k", 25.5); })(),
+      model: (() => { const ev = { markets: [{ key: "player_points", player: "P", cat: "props", line: 25.5, order: ["Over", "Under"], fair: { p: [0.5, 0.5] } }] }; return sharpProbAtLine(ev, "P", "player_points", 30.5); })(),
+      modelExp: normCdf(-5 / 9),
+    }));
+    ok(near(m.be3, Math.pow(1 / 5, 1 / 3)) && near(m.be2, Math.sqrt(1 / 3)), "breakeven: PP 3-pick = (1/5)^⅓, 2-pick = √(1/3)");
+    ok(m.beU3 < m.be3, "Underdog 3-pick breakeven (6×) is lower than PrizePicks (5×)");
+    ok(near(m.pb[3], 0.216) && near(m.pb[0], 0.064) && near(m.pb.reduce((a, b) => a + b), 1), "Poisson-binomial distribution sums to 1 and is correct");
+    ok(near(m.powEven, 5 * 0.216 - 1), "powerEV = multiplier × ∏p − 1");
+    ok(m.exact.conf === "exact" && near(m.exact.pOver, 0.6), "sharpProbAtLine: exact line match");
+    ok(m.interp.conf === "interp" && near(m.interp.pOver, 0.55, 0.02), "sharpProbAtLine: interpolates between alt lines");
+    ok(m.model.conf === "model" && near(m.model.pOver, m.modelExp, 1e-6), "sharpProbAtLine: normal-model fallback shifts off the line");
+    await page.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    await prep(page);
+    await page.goto(PAGE);
+    await page.evaluate(() => localStorage.clear());
+    await page.reload(); await page.waitForTimeout(600);
+    await page.click("[data-v=dfs]"); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => DFSPICKS.length > 3), "demo board produces DFS picks");
+    ok(await page.evaluate(() => DFSPICKS.every((p) => p.edge >= F.dfs.minEdge / 100 - 1e-9)), "every pick clears the min edge");
+    ok(await page.evaluate(() => DFSPICKS.every((p) => BOOKS[p.app] && BOOKS[p.app].dfs)), "picks only come from DFS apps");
+    ok(await page.evaluate(() => { const be = dfsBreakeven(F.dfs.app, F.dfs.legs); return DFSPICKS.every((p) => Math.abs(p.edge - (p.p - be)) < 1e-9); }), "edge = fair % − breakeven");
+    ok(await page.evaluate(() => DFSPICKS.every((p, i) => !i || DFSPICKS[i - 1].edge >= p.edge)), "board sorted by edge");
+    const before = await page.evaluate(() => DFSPICKS.length);
+    await page.click('[data-act=dset][data-f=app][data-val="underdog"]'); await page.waitForTimeout(200);
+    ok(await page.evaluate((b) => F.dfs.app === "underdog" && DFSPICKS.length >= b, before), "switching app to Underdog (lower breakeven) shows at least as many", String(before));
+    await page.click('[data-act=dset][data-f=app][data-val="prizepicks"]');
+    await page.click('[data-act=dset][data-f=conf][data-val="exact"]'); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => DFSPICKS.every((p) => p.conf === "exact")), "Exact-only filter keeps only exact-line picks");
+    await page.click('[data-act=dset][data-f=conf][data-val="model"]');
+    /* slate builder */
+    for (let i = 0; i < 3; i++) await page.locator(".dfs-row [data-act=slate-add]").nth(i).click();
+    ok(await page.evaluate(() => S.slate.length === 3), "add three picks to the slate");
+    const sv = await page.evaluate(() => { const ps = S.slate.map((p) => p.p); return { power: powerEV(F.dfs.app, ps), flex: flexEV(F.dfs.app, ps), shown: $("#slate").innerText.includes("Power") }; });
+    ok(sv.power != null && sv.shown, "slate shows power & flex EV");
+    await page.locator("#slate [data-act=slate-del]").first().click();
+    ok(await page.evaluate(() => S.slate.length === 2), "remove a pick from the slate");
+    await page.click("[data-act=slate-clear]");
+    ok(await page.evaluate(() => S.slate.length === 0), "clear slate");
+    await page.reload(); await page.waitForTimeout(500);
+    await page.click("[data-v=dfs]");
+    ok(await page.evaluate(() => DFSPICKS.every((p) => !isLive(p.ev))), "started games hidden by default");
+    /* DFS books must not leak into the sportsbook EV screen or odds screen */
+    ok(await page.evaluate(() => OPPS.every((o) => !BOOKS[o.book]?.dfs)), "DFS apps never appear as +EV sportsbook bets");
+    ok(await page.evaluate(() => !F.books.some((b) => BOOKS[b]?.dfs)), "DFS apps not in the default sportsbook list");
+    await ctx.close();
+  }
+  {
+    /* live: props request pulls DFS apps, and a soft PrizePicks line surfaces */
+    const { page, ctx, calls } = await livePage(browser);
+    const propCall = calls.find((u) => u.pathname.includes("/events/") && u.pathname.includes("/odds"));
+    ok(propCall && DFS_BOOKS_IN(propCall), "props request includes DFS app keys");
+    await page.click("[data-v=dfs]"); await page.waitForTimeout(300);
+    const allen = await page.evaluate(() => DFSPICKS.find((p) => p.player === "J. Allen" && p.side === "Over"));
+    ok(allen && allen.app === "prizepicks" && allen.line === 243.5, "PrizePicks J. Allen Over 243.5 appears on the board");
+    ok(allen && allen.p > 0.5 && allen.gap > 0, "its fair % beats 50% and the sharp line sits above the DFS line (soft over)");
+    await ctx.close();
+  }
+
   /* ============ 6. layout ============ */
   console.log("\n6. Layout — no horizontal page scroll");
   for (const w of [360, 390, 768, 1024, 1180, 1440, 1920]) {
@@ -338,7 +418,7 @@ async function livePage(browser, opts = {}) {
     await prep(page);
     await page.goto(PAGE); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(400);
     const res = [];
-    for (const v of ["ev", "odds", "arb", "tracker", "calc"]) {
+    for (const v of ["ev", "dfs", "odds", "arb", "tracker", "calc"]) {
       await page.click(`[data-v=${v}]`); await page.waitForTimeout(100);
       res.push(await page.evaluate(() => document.documentElement.scrollWidth));
     }

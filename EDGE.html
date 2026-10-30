@@ -219,6 +219,44 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; backgr
 .banner .btn { margin-left: auto; }
 .banner.err { background: var(--neg-soft); color: var(--neg); }
 
+/* ---------- DFS pick'em ---------- */
+.dfs-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.dfs-grid { display: grid; grid-template-columns: 74px minmax(130px, 1.3fr) minmax(130px, 1.2fr) 86px 66px 86px 56px 44px; align-items: center; gap: 10px; padding: 10px 14px; }
+.dfs-head { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.dfs-row { border-bottom: 1px solid var(--line-soft); }
+.dfs-row:hover { background: var(--surface-2); }
+.dfs-row.added { background: var(--accent-soft); }
+.dfs-row .teams { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dfs-row .meta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
+.dfs-row .bet { font-weight: 600; white-space: nowrap; }
+.dfs-row .mk { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dfs-row .fair { font-family: var(--mono); font-weight: 700; }
+.dfs-row .sub { font-size: 11px; color: var(--dim); font-family: var(--mono); }
+.dfs-grid > div { min-width: 0; }
+.c-add { display: flex; justify-content: flex-end; }
+.c-add .trk { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--accent); border: 1px solid var(--accent-line); }
+.c-add .trk.done { background: var(--accent); color: var(--accent-ink); }
+.c-add .trk svg { width: 14px; height: 14px; }
+.conf-tag { font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.conf-exact { background: var(--accent-soft); color: var(--accent); }
+.conf-interp { background: var(--fair-soft); color: var(--fair); }
+.conf-model { background: var(--surface-3); color: var(--muted); }
+.slate { position: sticky; top: 70px; padding: 14px; align-self: start; }
+.slate-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.slate-empty { font-size: 13px; color: var(--muted); line-height: 1.55; padding: 10px 0; }
+.slate-legs { display: grid; gap: 6px; margin-bottom: 12px; }
+.slate-leg { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; }
+.slate-leg .nm { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slate-leg .sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.slate-leg .x { margin-left: auto; width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); flex: none; }
+.slate-leg .x:hover { color: var(--neg); border-color: var(--neg); }
+.slate-leg .x svg { width: 12px; height: 12px; }
+.slate-stats { border-top: 1px solid var(--line); padding-top: 10px; }
+.slate-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; padding: 5px 0; font-size: 13px; }
+.slate-row span:nth-child(2) { min-width: 44px; text-align: right; }
+.slate-row span:nth-child(3) { min-width: 60px; text-align: right; }
+.slate-row.head { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); border-bottom: 1px solid var(--line-soft); }
+
 /* ---------- odds screen ---------- */
 .os-wrap { overflow: auto; max-height: calc(100vh - 220px); }
 .os { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
@@ -295,6 +333,10 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; backgr
   .c-sharp, .c-age { display: none; }
   .c-book .bk-name { display: none; }
 }
+@media (max-width: 1280px) {
+  .dfs-wrap { grid-template-columns: 1fr; }
+  .slate { position: static; }
+}
 @media (max-width: 1180px) {
   .ev-layout { grid-template-columns: 1fr; }
   .filters { position: fixed; top: 0; left: 0; bottom: 0; width: min(340px, 88vw); max-height: none; z-index: 60; border-radius: 0; transform: translateX(-105%); transition: transform .2s; }
@@ -311,11 +353,13 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; backgr
   .status { margin-left: auto; }
   .brand small { display: none; }
   .wrap { padding: 14px 16px 60px; }
-  .ev-head { display: none; }
+  .ev-head, .dfs-head { display: none; }
   .ev-grid { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ev . acts" "event event event" "bet bet bet" "book fair stake"; gap: 8px 10px; padding: 12px; }
   .c-ev { grid-area: ev; } .c-event { grid-area: event; } .c-bet { grid-area: bet; } .c-book { grid-area: book; } .c-fair { grid-area: fair; } .c-stake { grid-area: stake; text-align: right; } .c-act { grid-area: acts; }
   .c-book .bk-name { display: inline; }
-  .c-fair::before, .c-stake::before { content: attr(data-l); display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+  .dfs-grid { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "edge player add" "pick pick pick" "fair need gap"; gap: 8px 10px; padding: 12px; }
+  .c-edge { grid-area: edge; } .c-player { grid-area: player; } .c-pick { grid-area: pick; } .c-fair { grid-area: fair; } .c-need { grid-area: need; } .c-gap { grid-area: gap; } .c-conf { display: none; } .c-add { grid-area: add; }
+  .c-fair::before, .c-stake::before, .c-need::before, .c-gap::before { content: attr(data-l); display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
   .detail { padding: 4px 12px 14px; }
   .arb-grid, .calc-grid { grid-template-columns: 1fr; }
   .kpi .v { font-size: 18px; }
@@ -386,6 +430,26 @@ const MARKET_LABELS = {
 const marketLabel = (k) => MARKET_LABELS[k] || k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const marketCat = (k) => (k === "h2h" || k === "spreads" || k === "totals" ? k : "props");
 
+/* rough per-market standard deviation (in the stat's own units), used only to price a
+   DFS line that no sharp book hangs exactly. Estimates, deliberately conservative. */
+const MARKET_SIGMA = {
+  player_points: 9, player_rebounds: 3.3, player_assists: 2.8, player_threes: 1.6,
+  player_pass_yds: 46, player_rush_yds: 26, player_reception_yds: 26, player_receptions: 2,
+  player_shots_on_goal: 1.6, pitcher_strikeouts: 2.1, batter_total_bases: 1.3, batter_hits: 0.95,
+};
+
+/* DFS pick'em apps. Payouts are the commonly published defaults and vary by promo and
+   state — verify in-app. power[N] = all-correct multiplier; flex[N][k] = payout for k of N. */
+const DFS_PAYOUTS = {
+  prizepicks: { name: "PrizePicks", power: { 2: 3, 3: 5, 4: 10, 5: 20, 6: 37.5 },
+    flex: { 3: { 3: 2.25, 2: 1.25 }, 4: { 4: 5, 3: 1.5 }, 5: { 5: 10, 4: 2, 3: 0.4 }, 6: { 6: 25, 5: 2, 4: 0.4 } } },
+  underdog: { name: "Underdog", power: { 2: 3, 3: 6, 4: 10, 5: 20 },
+    flex: { 3: { 3: 6, 2: 0.25 }, 4: { 4: 10, 3: 1.5 }, 5: { 5: 20, 4: 2, 3: 0.5 } } },
+  sleeper: { name: "Sleeper", power: { 2: 3, 3: 6, 4: 10, 5: 19, 6: 36 },
+    flex: { 3: { 3: 6, 2: 0 }, 4: { 4: 10, 3: 1.5 }, 5: { 5: 19, 4: 1.75 }, 6: { 6: 36, 5: 2, 4: 0.4 } } },
+};
+const DFS_BOOKS = ["prizepicks", "underdog", "sleeper", "draftkings_pick6", "dabble_au"];
+
 const BOOKS = {
   pinnacle: { name: "Pinnacle", abbr: "PIN", color: "#D9480F" },
   circasports: { name: "Circa", abbr: "CIR", color: "#8C6D1F" },
@@ -405,6 +469,11 @@ const BOOKS = {
   bovada: { name: "Bovada", abbr: "BOV", color: "#991B1B" },
   mybookieag: { name: "MyBookie", abbr: "MYB", color: "#A16207" },
   betus: { name: "BetUS", abbr: "BUS", color: "#1E40AF" },
+  prizepicks: { name: "PrizePicks", abbr: "PP", color: "#5B28C4", dfs: true },
+  underdog: { name: "Underdog", abbr: "UD", color: "#B01644", dfs: true },
+  sleeper: { name: "Sleeper", abbr: "SLP", color: "#B5700B", dfs: true },
+  draftkings_pick6: { name: "DK Pick6", abbr: "P6", color: "#1C7C3B", dfs: true },
+  dabble_au: { name: "Dabble", abbr: "DAB", color: "#0E7490", dfs: true },
 };
 function registerBook(key, title) {
   if (BOOKS[key]) return;
@@ -428,7 +497,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const DEFAULT_SETTINGS = {
   mode: "demo", apiKey: "", regions: ["us", "us2", "eu", "us_ex"],
   leagues: ["americanfootball_nfl", "basketball_nba", "icehockey_nhl", "americanfootball_ncaaf", "baseball_mlb", "soccer_epl"],
-  props: false, propEvents: 4, refreshSec: 0, theme: "auto", liveTick: true, reqMode: "books",
+  props: false, propEvents: 4, refreshSec: 0, theme: "auto", liveTick: true, reqMode: "books", dfs: true,
 };
 const DEFAULT_FILTERS = {
   devig: "worst",
@@ -440,6 +509,7 @@ const DEFAULT_FILTERS = {
   bankroll: 1000, kelly: 0.25, maxStakePct: 3, hideStarted: true,
   sort: "ev", search: "",
   arbMine: false, arbStake: 100, lowHold: 1,
+  dfs: { app: "prizepicks", legs: 3, conf: "model", minEdge: 1.5, hideStarted: true, search: "", entry: 20 },
 };
 const S = {
   view: LS.get("lbe.view", "ev"),
@@ -447,15 +517,18 @@ const S = {
   F: Object.assign(clone(DEFAULT_FILTERS), LS.get("lbe.filters", {})),
   bets: LS.get("lbe.bets", []),
   hidden: new Set(LS.get("lbe.hidden", [])),
+  slate: LS.get("lbe.slate", []),
   events: [], updated: 0, loading: false, error: "", credits: null,
-  open: new Set(), flash: {}, hist: {},
+  open: new Set(), flash: {}, hist: {}, dfsMap: new Map(),
   os: { league: "", cat: "h2h", search: "" },
   trackFilter: "all",
 };
 const F = S.F;
+if (!F.dfs) F.dfs = clone(DEFAULT_FILTERS.dfs); /* migrate older saved filters */
 const saveF = () => LS.set("lbe.filters", F);
 const saveS = () => LS.set("lbe.settings", S.settings);
 const saveBets = () => LS.set("lbe.bets", S.bets);
+const saveSlate = () => LS.set("lbe.slate", S.slate);
 
 /* ---------------- odds math ---------------- */
 const amToDec = (a) => (a > 0 ? 1 + a / 100 : 1 + 100 / -a);
@@ -641,9 +714,13 @@ async function fetchLive() {
       }
       const list = data.map((e) => ingestApiEvent(e, lg));
       if (st.props && PROP_MARKETS[lg]) {
+        /* props call also pulls DFS apps so the Pick'em board has lines to price */
+        const propScope = scope.bookmakers
+          ? { bookmakers: [...requestBooks(), ...(st.dfs ? DFS_BOOKS : [])].join(",") }
+          : { regions: [...st.regions, ...(st.dfs ? ["us_dfs"] : [])].join(",") };
         const upcoming = list.filter((e) => e.start > Date.now()).sort((a, b) => a.start - b.start).slice(0, st.propEvents);
         await Promise.all(upcoming.map(async (ev) => {
-          try { ingestApiEvent(await oddsApi(`sports/${lg}/events/${ev.id}/odds`, { ...base, ...scope, markets: PROP_MARKETS[lg] }), lg, ev); }
+          try { ingestApiEvent(await oddsApi(`sports/${lg}/events/${ev.id}/odds`, { ...base, ...propScope, markets: PROP_MARKETS[lg] }), lg, ev); }
           catch (e) { errors.push(leagueShort(lg) + " props: " + e.message); }
         }));
       }
@@ -769,13 +846,26 @@ function buildDemo() {
       const props = DEMO_PROPS[lg];
       if (props) {
         const names = new Set();
-        while (names.size < 5) names.add(pick(FIRST)[0] + ". " + pick(LAST));
+        while (names.size < 6) names.add(pick(FIRST)[0] + ". " + pick(LAST));
         [...names].forEach((nm, k) => {
           const [key, lo, hi] = props[k % props.length];
           const line = lo === hi ? lo : Math.floor(lo + rnd() * (hi - lo)) + 0.5;
           const po = 0.5 + gauss() * 0.05;
+          const sigma = MARKET_SIGMA[key] || 2;
+          const mu = line + sigma * normInv(Math.min(0.99, Math.max(0.01, po))); /* where the sharp line sits at 50/50 */
+          const pOverAt = (L) => Math.min(0.97, Math.max(0.03, normCdf((mu - L) / sigma)));
           const g = mk(key, `${key}|${nm}|${line}`, ["Over", "Under"], line, nm, [po, 1 - po]);
           g.order.forEach((n) => (g.out[n].point = line));
+          /* alternate sharp lines so a DFS number between them can be priced by interpolation */
+          for (const off of [-1, 1]) {
+            const al = line + off; if (al < 0.5) continue;
+            const p2 = pOverAt(al);
+            const ag = mk(key, `${key}|${nm}|${al}`, ["Over", "Under"], al, nm, [p2, 1 - p2]);
+            ag.order.forEach((n) => (ag.out[n].point = al));
+            thin(ag);
+          }
+          /* DFS apps hang their own line, often a little off the sharp number — that gap is the edge */
+          addDemoDfs(ev, key, nm, line, mu, sigma);
         });
       }
       events.push(ev);
@@ -785,6 +875,21 @@ function buildDemo() {
 }
 /* alternate lines: fewer books hang them */
 function thin(g) { for (const n of g.order) for (const b of Object.keys(g.out[n].prices)) if (b !== "pinnacle" && rnd() < 0.55) g.order.forEach((m) => delete g.out[m].prices[b]); }
+/* demo DFS offers: each app posts a line near the sharp number; a nominal -119/-119 price */
+const DEMO_DFS = ["prizepicks", "underdog", "sleeper"];
+function addDemoDfs(ev, key, player, sharpLine, mu, sigma) {
+  for (const book of DEMO_DFS) {
+    if (rnd() < 0.25) continue; /* app doesn't cover everyone */
+    /* gap scaled to the stat's SD, so edges land in a realistic few-percent band; occasionally softer */
+    const gap = gauss() * 0.16 * sigma * (rnd() < 0.15 ? 2 : 1);
+    const dl = Math.max(0.5, Math.round((sharpLine + gap) * 2) / 2);
+    const gid = `${key}|${player}|${dl}`;
+    let g = ev.markets.find((m) => m.id === gid);
+    if (!g) { g = { id: gid, key, cat: "props", line: dl, player, order: ["Over", "Under"], out: { Over: { name: "Over", point: dl, prices: {} }, Under: { name: "Under", point: dl, prices: {} } } }; ev.markets.push(g); }
+    const t = Date.now() - Math.floor(rnd() * 180000);
+    g.out.Over.prices[book] = { price: -119, t }; g.out.Under.prices[book] = { price: -119, t };
+  }
+}
 
 /* live-feel: re-price a handful of book/markets every few seconds */
 function demoTick() {
@@ -832,6 +937,93 @@ function fairFor(g) {
   return { used, methods, worst, hold, width, p: F.devig === "worst" ? worst : methods[F.devig] };
 }
 
+/* ---------------- DFS pick'em engine ----------------
+   DFS apps give a line, not odds. +EV = the sharp market's fair probability for your
+   side, at the app's line, beats the breakeven the parlay payout needs. */
+function normInv(p) {
+  if (p <= 0) return -38; if (p >= 1) return 38;
+  const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
+  const b = [-54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857];
+  const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373, 4.37466414146497, 2.93816398269878];
+  const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
+  const pl = 0.02425, ph = 1 - pl; let q, r;
+  if (p < pl) { q = Math.sqrt(-2 * Math.log(p)); return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+  if (p <= ph) { q = p - 0.5; r = q * q; return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1); }
+  q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+}
+const clampP = (x) => Math.min(0.995, Math.max(0.005, x));
+/* sharp fair P(over) at an arbitrary line L for one player+market, from the sharp groups.
+   exact match → interpolate across alt lines → normal-model shift from the nearest line. */
+function sharpProbAtLine(ev, player, key, L) {
+  const pts = [];
+  for (const g of ev.markets) {
+    if (g.key !== key || g.player !== player || g.cat !== "props" || !g.fair) continue;
+    const oi = g.order.indexOf("Over"); if (oi < 0) continue;
+    pts.push({ line: g.line, pOver: g.fair.p[oi] });
+  }
+  if (!pts.length) return null;
+  pts.sort((a, b) => a.line - b.line);
+  const sigma = MARKET_SIGMA[key] || Math.max(1, Math.abs(pts[0].line) * 0.4);
+  const muOf = (pt) => pt.line + sigma * normInv(clampP(pt.pOver));
+  const exact = pts.find((pt) => Math.abs(pt.line - L) < 0.25);
+  if (exact) return { pOver: clampP(exact.pOver), conf: "exact", mu: muOf(exact), sigma };
+  let lo = null, hi = null;
+  for (const pt of pts) { if (pt.line <= L) lo = pt; if (pt.line >= L && !hi) hi = pt; }
+  if (lo && hi && lo !== hi) {
+    const t = (L - lo.line) / (hi.line - lo.line);
+    const pOver = clampP(lo.pOver + t * (hi.pOver - lo.pOver));
+    return { pOver, conf: "interp", mu: L + sigma * normInv(pOver), sigma };
+  }
+  const near = pts.reduce((a, b) => (Math.abs(b.line - L) < Math.abs(a.line - L) ? b : a));
+  const mu = muOf(near);
+  return { pOver: clampP(normCdf((mu - L) / sigma)), conf: "model", mu, sigma };
+}
+const CONF_RANK = { model: 0, interp: 1, exact: 2 };
+const dfsBreakeven = (app, n) => { const m = DFS_PAYOUTS[app].power[n]; return m ? Math.pow(1 / m, 1 / n) : null; };
+/* Poisson-binomial: dist[k] = P(exactly k of the picks hit) */
+function poissonBinom(ps) {
+  let d = [1];
+  for (const p of ps) { const nd = new Array(d.length + 1).fill(0); for (let k = 0; k < d.length; k++) { nd[k] += d[k] * (1 - p); nd[k + 1] += d[k] * p; } d = nd; }
+  return d;
+}
+function powerEV(app, ps) { const m = DFS_PAYOUTS[app].power[ps.length]; return m == null ? null : m * ps.reduce((a, p) => a * p, 1) - 1; }
+function flexEV(app, ps) {
+  const tbl = DFS_PAYOUTS[app].flex[ps.length]; if (!tbl) return null;
+  const d = poissonBinom(ps); let ev = 0;
+  for (const k in tbl) ev += (d[k] || 0) * tbl[k];
+  return ev - 1;
+}
+let DFSPICKS = [];
+function dfsAnalyze() {
+  const picks = [], map = new Map();
+  const app = F.dfs.app, N = F.dfs.legs, be = dfsBreakeven(app, N);
+  const need = CONF_RANK[F.dfs.conf] ?? 0;
+  const q = F.dfs.search.trim().toLowerCase();
+  for (const ev of S.events) {
+    if (!inWindow(ev) || (F.dfs.hideStarted && isLive(ev))) continue;
+    for (const g of ev.markets) {
+      if (g.cat !== "props" || g.order.indexOf("Over") < 0 || g.order.indexOf("Under") < 0) continue;
+      const t = g.out[g.order[0]].prices[app]?.t;
+      if (t == null) continue; /* this app hangs this line */
+      const sp = sharpProbAtLine(ev, g.player, g.key, g.line);
+      if (!sp || CONF_RANK[sp.conf] < need) continue;
+      for (const side of ["Over", "Under"]) {
+        const p = side === "Over" ? sp.pOver : 1 - sp.pOver;
+        const edge = be == null ? null : p - be;
+        if (be != null && edge < F.dfs.minEdge / 100) continue;
+        if (q && !`${g.player} ${marketLabel(g.key)} ${evTitle(ev)} ${leagueShort(ev.league)}`.toLowerCase().includes(q)) continue;
+        const key = `dfs|${ev.id}|${g.id}|${side}`;
+        const pk = { key, ev, g, app, player: g.player, market: g.key, line: g.line, side, p, be, edge,
+          legEV: be ? p / be - 1 : null, gap: sp.mu - g.line, conf: sp.conf, mu: sp.mu, t };
+        picks.push(pk); map.set(key, pk);
+      }
+    }
+  }
+  picks.sort((a, b) => (b.edge ?? b.p - 0.5) - (a.edge ?? a.p - 0.5) || b.p - a.p);
+  DFSPICKS = picks;
+  S.dfsMap = map;
+}
+
 let OPPS = [], ARBS = [], LOWHOLD = [];
 function analyze() {
   const opps = [], arbs = [], low = [];
@@ -848,7 +1040,7 @@ function analyze() {
         const legs = g.order.map((n) => {
           let best = null;
           for (const [b, v] of Object.entries(g.out[n].prices)) {
-            if (F.arbMine && !mine.has(b)) continue;
+            if (BOOKS[b]?.dfs || (F.arbMine && !mine.has(b))) continue;
             if (!best || amToDec(v.price) > amToDec(best.price)) best = { book: b, price: v.price, name: n };
           }
           return best;
@@ -865,7 +1057,7 @@ function analyze() {
         const key = `${ev.id}|${g.id}|${name}`;
         let best = null; const all = [];
         for (const [b, v] of Object.entries(g.out[name].prices)) {
-          if (!mine.has(b)) continue;
+          if (BOOKS[b]?.dfs || !mine.has(b)) continue;
           const d = amToDec(v.price), e = p * d - 1;
           all.push({ book: b, price: v.price, ev: e, t: v.t });
           if (!best || d > amToDec(best.price)) best = { book: b, price: v.price, ev: e, t: v.t, link: v.link };
@@ -898,6 +1090,7 @@ function analyze() {
   OPPS = opps.sort(sorters[F.sort] || sorters.ev);
   ARBS = arbs.sort((a, b) => b.roi - a.roi);
   LOWHOLD = low.sort((a, b) => a.inv - b.inv);
+  dfsAnalyze();
   updateClv();
 }
 function betLabel(ev, g, name) {
@@ -952,9 +1145,9 @@ function schedule() {
 /* ============================================================
    RENDER
    ============================================================ */
-const VIEWS = [["ev", "Positive EV"], ["odds", "Odds Screen"], ["arb", "Arbitrage"], ["tracker", "Bet Tracker"], ["calc", "Calculators"]];
+const VIEWS = [["ev", "Positive EV"], ["dfs", "Pick'em"], ["odds", "Odds Screen"], ["arb", "Arbitrage"], ["tracker", "Bet Tracker"], ["calc", "Calculators"]];
 function renderNav() {
-  const counts = { ev: OPPS.length, arb: ARBS.length, tracker: S.bets.filter((b) => b.status === "pending").length };
+  const counts = { ev: OPPS.length, dfs: DFSPICKS.length, arb: ARBS.length, tracker: S.bets.filter((b) => b.status === "pending").length };
   $("#nav").innerHTML = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" class="${S.view === k ? "on" : ""}">${l}${counts[k] ? `<span class="count">${counts[k]}</span>` : ""}</button>`).join("");
 }
 function renderStatus() {
@@ -971,17 +1164,20 @@ function render() {
   renderNav(); renderStatus();
   const v = $("#view");
   if (S.view === "ev") v.innerHTML = viewEV();
+  else if (S.view === "dfs") v.innerHTML = viewPickem();
   else if (S.view === "odds") v.innerHTML = viewOdds();
   else if (S.view === "arb") v.innerHTML = viewArb();
   else if (S.view === "tracker") { v.innerHTML = viewTracker(); bindChart(); }
   else v.innerHTML = viewCalc();
   if (S.view === "ev") renderResults();
+  if (S.view === "dfs") renderPickem();
   if (S.view === "calc") { runCalcs(); convFrom("c-am"); }
 }
 /* partial re-render after data ticks: never touch inputs the user may be typing in */
 function renderLive() {
   renderNav(); renderStatus();
   if (S.view === "ev") renderResults();
+  else if (S.view === "dfs") renderPickem();
   else if (S.view === "odds") { const w = $("#os-body"); if (w) w.innerHTML = oddsTable(); }
   else if (S.view === "arb") { const w = $("#arb-body"); if (w) w.innerHTML = arbBody(); }
 }
@@ -1272,6 +1468,134 @@ function arbBody() {
   <p class="note" style="margin-top:14px">Always confirm both prices before placing. Books can void palpable errors and limit accounts that arb heavily.</p>`;
 }
 
+/* ---------------- DFS Pick'em ---------------- */
+const CONF_LABEL = { exact: "Exact", interp: "Interp", model: "Est" };
+function viewPickem() {
+  const apps = Object.keys(DFS_PAYOUTS);
+  const seg = (name, val, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-act="dset" data-f="${name}" data-val="${v}" class="${String(val) === String(v) ? "on" : ""}">${l}</button>`).join("")}</div>`;
+  const tbl = DFS_PAYOUTS[F.dfs.app];
+  return `
+  <div class="ev-layout">
+    <aside class="filters card" id="filters">
+      <div class="filters-close"><b>Pick'em filters</b><button class="icon-btn" data-act="filters" aria-label="Close filters">${ICON.x}</button></div>
+      <div class="fs">
+        <div class="label">App</div>
+        ${seg("app", F.dfs.app, apps.map((a) => [a, DFS_PAYOUTS[a].name]))}
+      </div>
+      <div class="fs">
+        <div class="label">Entry size · legs</div>
+        ${seg("legs", F.dfs.legs, [2, 3, 4, 5, 6].filter((n) => tbl.power[n]).map((n) => [n, n + ""]))}
+        <p class="note" style="margin-top:8px">${tbl.power[F.dfs.legs] ? `${F.dfs.legs}-pick power pays <b>${tbl.power[F.dfs.legs]}×</b> — each leg must clear <b class="mono">${fmtPct(dfsBreakeven(F.dfs.app, F.dfs.legs))}</b> to be +EV.` : "This app has no power payout for that leg count."}</p>
+      </div>
+      <div class="fs">
+        <div class="label">Line confidence</div>
+        ${seg("conf", F.dfs.conf, [["model", "All"], ["interp", "Bracketed+"], ["exact", "Exact only"]])}
+        <p class="note" style="margin-top:8px">How the fair line is priced: <b>exact</b> a sharp book hangs the same number, <b>interp</b> between two sharp lines, <b>est</b> modelled from the nearest.</p>
+      </div>
+      <div class="fs">
+        <div class="label">Thresholds</div>
+        <div class="frow"><span>Min edge over breakeven</span><input type="number" step="0.5" value="${F.dfs.minEdge}" data-df="minEdge" />%</div>
+        <div class="frow"><span>Hide started games</span><input type="checkbox" ${F.dfs.hideStarted ? "checked" : ""} data-df="hideStarted" /></div>
+        <div class="frow"><span>Entry $ (for payout)</span><input type="number" min="1" step="5" value="${F.dfs.entry}" data-df="entry" /></div>
+      </div>
+      <div class="fs"><button class="btn sm ghost" data-act="dfs-reset" style="width:100%">Reset Pick'em filters</button></div>
+    </aside>
+    <section>
+      ${banner()}
+      ${S.settings.mode === "live" && !S.settings.dfs ? `<div class="banner">DFS apps are turned off. Turn on "DFS pick'em props" in Settings to load PrizePicks, Underdog and Sleeper lines.<button class="btn sm" data-act="settings">Settings</button></div>` : ""}
+      ${S.settings.mode === "live" && S.settings.dfs && !S.settings.props ? `<div class="banner">Pick'em needs player props. Turn on props in Settings.<button class="btn sm" data-act="settings">Settings</button></div>` : ""}
+      <div class="kpis" id="dfs-kpis"></div>
+      <div class="toolbar">
+        <button class="btn mobile-only" data-act="filters">${ICON.filter} Filters</button>
+        <div class="search"><input id="dfs-search" type="search" placeholder="Search player, market, team…" value="${esc(F.dfs.search)}" /></div>
+      </div>
+      <div class="dfs-wrap">
+        <div class="card tbl" style="min-width:0">
+          <div class="dfs-grid dfs-head">
+            <div>Edge</div><div>Player</div><div>Pick</div><div>Fair %</div><div class="c-need">Need</div><div class="c-gap">Line gap</div><div class="c-conf">Conf</div><div></div>
+          </div>
+          <div id="dfs-results"></div>
+        </div>
+        <aside class="slate card" id="slate"></aside>
+      </div>
+    </section>
+  </div>`;
+}
+function renderPickem() {
+  const k = $("#dfs-kpis");
+  if (k) {
+    const n = DFSPICKS.length, be = dfsBreakeven(F.dfs.app, F.dfs.legs);
+    const top = n ? DFSPICKS[0] : null;
+    k.innerHTML = [
+      ["+EV picks", n, `${DFS_PAYOUTS[F.dfs.app].name} · ${F.dfs.legs}-pick`],
+      ["Breakeven / leg", be ? fmtPct(be) : "—", "win rate each leg needs"],
+      ["Best edge", top && top.edge != null ? fmtSigned(top.edge) : "—", top ? `${top.player} ${top.side}` : "over breakeven"],
+      ["In your slate", S.slate.length, slateSummaryLine()],
+    ].map(([l, v, s], i) => `<div class="card kpi"><div class="label">${l}</div><div class="v ${i === 2 ? "pos" : ""}">${v}</div><div class="s">${esc(s)}</div></div>`).join("");
+  }
+  const box = $("#dfs-results");
+  if (box) {
+    if (S.loading && !S.events.length) box.innerHTML = `<div class="empty"><b>Loading…</b></div>`;
+    else if (!DFSPICKS.length) box.innerHTML = `<div class="empty"><b>No +EV ${DFS_PAYOUTS[F.dfs.app].name} picks</b>${S.events.length ? "Lower the min edge, loosen line confidence, or check another app. In live mode make sure props and DFS are on in Settings." : "No data loaded yet."}</div>`;
+    else {
+      const inSlate = new Set(S.slate.map((p) => p.key));
+      box.innerHTML = DFSPICKS.slice(0, 250).map((p) => dfsRow(p, inSlate.has(p.key))).join("");
+    }
+  }
+  const sl = $("#slate"); if (sl) sl.innerHTML = slateHTML();
+}
+const fmtSigned = (x) => (x >= 0 ? "+" : "") + (x * 100).toFixed(1) + "%";
+function dfsRow(p, added) {
+  const fl = S.flash[`${p.ev.id}|${p.g.id}|${p.side}|${p.app}`];
+  const edgeCls = p.edge == null ? "low" : p.edge >= 0.06 ? "hot" : p.edge < 0.02 ? "low" : "";
+  const gapTxt = p.gap == null ? "—" : `${p.gap > 0 ? "+" : ""}${p.gap.toFixed(1)}`;
+  return `
+  <div class="dfs-grid dfs-row ${added ? "added" : ""}">
+    <div class="c-edge"><span class="evb ${edgeCls}">${p.edge == null ? "—" : fmtSigned(p.edge)}</span></div>
+    <div class="c-player"><div class="meta"><span class="lg-tag">${esc(leagueShort(p.ev.league))}</span>${isLive(p.ev) ? '<span class="live-tag">LIVE</span>' : ""}<span>${esc(evTitle(p.ev))}</span></div><div class="teams">${esc(p.player)}</div></div>
+    <div class="c-pick"><div class="bet ${fl ? "flash-up" : ""}">${p.side === "Over" ? "▲" : "▼"} ${esc(p.side)} ${p.line}</div><div class="mk">${bookChip(p.app, false)}${esc(marketLabel(p.market))}</div></div>
+    <div class="c-fair" data-l="Fair"><div class="fair">${fmtPct(p.p)}</div><div class="sub">fair ${fmtAm(probToAm(p.p))}</div></div>
+    <div class="c-need" data-l="Need"><div class="mono">${p.be ? fmtPct(p.be) : "—"}</div></div>
+    <div class="c-gap" data-l="Gap"><div class="mono ${p.gap > 0 ? "pos" : p.gap < 0 ? "neg" : ""}">${gapTxt}</div><div class="sub">sharp ${p.mu != null ? p.mu.toFixed(1) : "—"}</div></div>
+    <div class="c-conf"><span class="conf-tag conf-${p.conf}">${CONF_LABEL[p.conf]}</span></div>
+    <div class="c-add"><button class="trk ${added ? "done" : ""}" data-act="slate-add" data-key="${esc(p.key)}" title="${added ? "In slate" : "Add to slate"}" aria-label="Add to slate">${added ? ICON.check : ICON.plus}</button></div>
+  </div>`;
+}
+function slateSummaryLine() {
+  const n = S.slate.length; if (!n) return "add picks to build an entry";
+  const ps = S.slate.map((p) => p.p), pe = powerEV(F.dfs.app, ps);
+  return pe == null ? `${n} picks` : `power EV ${fmtEV(pe)}`;
+}
+function slateHTML() {
+  const app = F.dfs.app, tbl = DFS_PAYOUTS[app], ps = S.slate.map((p) => p.p), N = S.slate.length;
+  const pe = powerEV(app, ps), fe = flexEV(app, ps), entry = Math.max(0, F.dfs.entry || 0);
+  const allP = ps.reduce((a, p) => a * p, 1);
+  const head = `<div class="slate-h"><b>Your slate</b>${N ? `<button class="btn sm ghost danger" data-act="slate-clear">Clear</button>` : ""}</div>`;
+  if (!N) return head + `<div class="slate-empty">Add picks from the board to build a ${tbl.name} entry and see its expected value.<br><br>A pick is +EV when its fair win % beats the breakeven each leg needs.</div>`;
+  const legs = S.slate.map((p) => `<div class="slate-leg"><div style="min-width:0"><div class="nm">${esc(p.player)} ${p.side === "Over" ? "▲" : "▼"} ${p.line}</div><div class="sub">${esc(marketLabel(p.market))} · ${fmtPct(p.p)} fair</div></div><button class="x" data-act="slate-del" data-key="${esc(p.key)}" aria-label="Remove">${ICON.x}</button></div>`).join("");
+  const pm = tbl.power[N], fm = tbl.flex[N];
+  const payoutRow = (label, mult, ev) => `<div class="slate-row"><span>${label}</span><span class="mono">${mult == null ? "n/a" : mult + "×"}</span><span class="mono ${ev == null ? "" : ev >= 0 ? "pos" : "neg"}">${ev == null ? "—" : fmtEV(ev)}</span></div>`;
+  const win = entry * (pm || 0);
+  return head + `
+    <div class="slate-legs">${legs}</div>
+    <div class="slate-stats">
+      <div class="slate-row head"><span>${N} picks</span><span>Payout</span><span>EV</span></div>
+      ${payoutRow("Power (all " + N + ")", pm, pe)}
+      ${payoutRow("Flex (protected)", fm ? "≤" + fm[N] : null, fe)}
+      <div class="slate-row"><span>All hit</span><span class="mono">${fmtPct(allP, 1)}</span><span class="mono">${pm ? fmtMoney(win) : "—"}</span></div>
+    </div>
+    <p class="note">On ${fmtMoney(entry)}: power returns ${pm ? fmtMoney(win) : "—"} if every pick hits. Payout multipliers are the published defaults — confirm them in the app, since they change by promo and state.</p>`;
+}
+function slateAdd(key) {
+  const p = S.dfsMap.get(key); if (!p) return;
+  if (S.slate.some((x) => x.key === key)) return;
+  const dup = S.slate.find((x) => x.player === p.player && x.market === p.market && x.ev === evTitle(p.ev));
+  if (dup) { toast("That player & market is already in your slate"); return; }
+  if (S.slate.length >= 6) { toast("Slates cap at 6 picks"); return; }
+  S.slate.push({ key, app: p.app, player: p.player, market: p.market, line: p.line, side: p.side, p: p.p, ev: evTitle(p.ev), league: leagueShort(p.ev.league) });
+  saveSlate(); renderPickem(); renderNav();
+}
+
 /* ---------------- Bet Tracker ---------------- */
 const profitOf = (b) => (b.status === "won" ? b.stake * (amToDec(b.odds) - 1) : b.status === "lost" ? -b.stake : 0);
 const clvOf = (b) => (b.closeFair == null ? null : amToDec(b.odds) / amToDec(b.closeFair) - 1);
@@ -1470,6 +1794,7 @@ function openSettings() {
         <label class="field"><span>Prop events per league</span><input id="set-pe" type="number" min="1" max="20" value="${st.propEvents}" /></label>
         <label class="field"><span>Auto-refresh (sec, 0 = off, min 30)</span><input id="set-ref" type="number" min="0" step="15" value="${st.refreshSec}" /></label>
         <label class="field"><span>Demo live ticks</span><select id="set-tick"><option value="1" ${st.liveTick ? "selected" : ""}>On</option><option value="0" ${!st.liveTick ? "selected" : ""}>Off</option></select></label>
+        <label class="field"><span>DFS pick'em (PrizePicks, Underdog, Sleeper)</span><select id="set-dfs"><option value="1" ${st.dfs ? "selected" : ""}>On</option><option value="0" ${!st.dfs ? "selected" : ""}>Off</option></select></label>
       </div>
       <p class="note" id="credit-note"></p>
       <div><div class="label" style="margin-bottom:8px">Data</div><div class="toolbar" style="margin:0"><button class="btn sm danger" data-act="wipe">Clear tracked bets</button><button class="btn sm" data-act="reset-all">Reset all settings</button></div></div>
@@ -1540,6 +1865,17 @@ document.addEventListener("click", (e) => {
     case "books-none": F.books = []; refilter(true); break;
     case "reset-filters": Object.assign(F, clone(DEFAULT_FILTERS)); refilter(true); break;
     case "os-cat": S.os.cat = k; render(); break;
+    case "dset": {
+      const f = el.dataset.f, v = el.dataset.val;
+      F.dfs[f] = f === "legs" ? +v : v;
+      saveF(); analyze();
+      if (f === "app" || f === "legs" || f === "conf") render(); else renderPickem();
+      break;
+    }
+    case "slate-add": slateAdd(el.dataset.key); break;
+    case "slate-del": S.slate = S.slate.filter((p) => p.key !== el.dataset.key); saveSlate(); renderPickem(); renderNav(); break;
+    case "slate-clear": S.slate = []; saveSlate(); renderPickem(); renderNav(); break;
+    case "dfs-reset": F.dfs = clone(DEFAULT_FILTERS.dfs); saveF(); analyze(); render(); break;
     case "tf": S.trackFilter = k; render(); break;
     case "del-bet": S.bets = S.bets.filter((b) => b.id !== el.dataset.id); saveBets(); render(); break;
     case "clear-close": { const b = S.bets.find((x) => x.id === el.dataset.id); if (b) { b.closeFair = null; b.manualClose = true; saveBets(); render(); } break; }
@@ -1553,7 +1889,7 @@ document.addEventListener("click", (e) => {
     case "save-settings": {
       const d = S._draft;
       d.apiKey = $("#set-key").value.trim(); d.props = $("#set-props").value === "1"; d.propEvents = Math.max(1, +$("#set-pe").value || 4);
-      d.refreshSec = Math.max(0, +$("#set-ref").value || 0); d.liveTick = $("#set-tick").value === "1";
+      d.refreshSec = Math.max(0, +$("#set-ref").value || 0); d.liveTick = $("#set-tick").value === "1"; d.dfs = $("#set-dfs").value === "1";
       if (d.mode === "live" && !d.apiKey) { toast("Add an API key for live mode"); return; }
       S.settings = d; saveS(); closeModal(); S.hist = {}; load(); break;
     }
@@ -1568,6 +1904,11 @@ document.addEventListener("input", (e) => {
   const el = e.target;
   if (el.id === "search") { F.search = el.value; saveF(); analyze(); renderResults(); renderNav(); return; }
   if (el.id === "os-search") { S.os.search = el.value; $("#os-body").innerHTML = oddsTable(); return; }
+  if (el.id === "dfs-search") { F.dfs.search = el.value; saveF(); analyze(); renderPickem(); renderNav(); return; }
+  if (el.dataset.df) {
+    if (el.type !== "checkbox" && (el.value === "" || isNaN(+el.value))) return;
+    F.dfs[el.dataset.df] = el.type === "checkbox" ? el.checked : Number(el.value); saveF(); analyze(); renderPickem(); renderNav(); return;
+  }
   if (el.dataset.f === "sharp") { F.sharp[el.dataset.b] = Number(el.value); el.nextElementSibling.textContent = Number(el.value).toFixed(1); refilter(false); return; }
   if (el.dataset.f && el.type === "number") {
     if (el.value === "" || isNaN(+el.value)) return;
@@ -1580,6 +1921,7 @@ document.addEventListener("change", (e) => {
   const el = e.target;
   if (el.id === "sort") { F.sort = el.value; saveF(); analyze(); render(); return; }
   if (el.id === "os-league") { S.os.league = el.value; render(); return; }
+  if (el.dataset.df && el.type === "checkbox") { F.dfs[el.dataset.df] = el.checked; saveF(); analyze(); renderPickem(); return; }
   if (el.dataset.f && el.type === "checkbox") { F[el.dataset.f] = el.checked; refilter(false); if (S.view === "arb") render(); return; }
   if (el.id === "set-props" || el.id === "set-pe") { S._draft.props = $("#set-props").value === "1"; S._draft.propEvents = +$("#set-pe").value || 4; updateCreditNote(); return; }
   if (el.dataset.bf) {

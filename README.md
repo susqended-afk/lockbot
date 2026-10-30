@@ -23,12 +23,13 @@ It opens in **demo mode**, which uses a simulated market so every screen works w
 
 ### Screens
 - **Positive EV**: filterable table showing EV %, fair odds, win %, bet size, sharp line and line age. Expand a row to see the full market across books, all four devig results, the EV and Kelly math, and line movement.
+- **Pick'em** (PrizePicks, Underdog, Sleeper): DFS apps post a line, not odds, so +EV is found differently. For each app's line the scanner reads the sharp market's fair probability *at that line* — exact when a sharp book hangs the same number, by interpolation between alternate sharp lines, or from a normal model off the nearest line (each pick is tagged with which). A pick is +EV when that fair win % beats the breakeven the parlay payout needs (for a PrizePicks 3-pick power at 5×, `(1/5)^(1/3)` = 58.5% per leg). Build a slate of up to 6 and it shows power and flex (protected) expected value, using a Poisson-binomial over the picks. Payout tables are the published defaults — verify them in-app.
 - **Odds Screen**: league × market grid with every book. The best price is outlined and +EV prices are shaded.
 - **Arbitrage & Low Hold**: the best price on each side, with stake splits for a chosen total stake.
 - **Bet Tracker**: one-click tracking from the EV screen. Shows P/L, ROI, expected profit, CLV (the fair line keeps updating until kickoff), a chart of cumulative actual vs expected profit, and CSV export.
 - **Calculators**: EV, no-vig, Kelly, arbitrage, odds converter and parlay EV.
 
 ### API credits
-The app checks the free `/sports` endpoint first and skips leagues that are out of season. By default it requests only your books plus the weighted sharp books (`bookmakers=`). If the API rejects that, it falls back to whole regions. A refresh costs about `leagues × 3 markets × ceil(books / 10)` credits in books mode, or `× regions` in region mode. Player props add `events × prop markets × regions` per league. Settings shows the estimate. Include the `eu` region (Pinnacle) and `us_ex` region (exchanges) so there are sharp lines to devig against.
+The app checks the free `/sports` endpoint first and skips leagues that are out of season. By default it requests only your books plus the weighted sharp books (`bookmakers=`). If the API rejects that, it falls back to whole regions. A refresh costs about `leagues × 3 markets × ceil(books / 10)` credits in books mode, or `× regions` in region mode. Player props add `events × prop markets × regions` per league. Settings shows the estimate. Include the `eu` region (Pinnacle) and `us_ex` region (exchanges) so there are sharp lines to devig against. The Pick'em board needs player props on; it pulls the DFS apps in the same props call (the `us_dfs` region, or the app keys in books mode).
 
 Settings, filters and tracked bets are stored in this browser's localStorage only.
