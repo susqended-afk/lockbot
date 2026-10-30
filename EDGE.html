@@ -422,21 +422,31 @@ const LEAGUES = [
 ];
 const leagueShort = (k) => (LEAGUES.find((l) => l.key === k) || {}).short || k.split("_").pop().toUpperCase();
 
+/* two-sided Over/Under player props. More markets = more picks, but each market
+   adds to the API cost per event (markets × regions). Trim per league in Settings. */
+const BBALL_PROPS = "player_points,player_rebounds,player_assists,player_threes,player_steals,player_blocks,player_turnovers,player_points_rebounds_assists,player_points_rebounds,player_points_assists,player_rebounds_assists,player_blocks_steals";
+const FBALL_PROPS = "player_pass_yds,player_pass_tds,player_pass_completions,player_pass_attempts,player_pass_interceptions,player_rush_yds,player_rush_attempts,player_receptions,player_reception_yds,player_rush_reception_yds,player_kicking_points,player_tackles_assists";
 const PROP_MARKETS = {
-  basketball_nba: "player_points,player_rebounds,player_assists,player_threes",
-  basketball_wnba: "player_points,player_rebounds,player_assists,player_threes",
-  basketball_ncaab: "player_points,player_rebounds,player_assists",
-  americanfootball_nfl: "player_pass_yds,player_rush_yds,player_reception_yds,player_receptions",
-  americanfootball_ncaaf: "player_pass_yds,player_rush_yds,player_reception_yds",
-  icehockey_nhl: "player_points,player_shots_on_goal",
-  baseball_mlb: "pitcher_strikeouts,batter_total_bases,batter_hits",
+  basketball_nba: BBALL_PROPS,
+  basketball_wnba: BBALL_PROPS,
+  basketball_ncaab: "player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists",
+  americanfootball_nfl: FBALL_PROPS,
+  americanfootball_ncaaf: "player_pass_yds,player_pass_tds,player_rush_yds,player_rush_attempts,player_receptions,player_reception_yds,player_kicking_points",
+  icehockey_nhl: "player_points,player_goals,player_assists,player_shots_on_goal,player_blocked_shots,player_power_play_points,player_total_saves",
+  baseball_mlb: "batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,batter_stolen_bases,batter_hits_runs_rbis,batter_walks,pitcher_strikeouts,pitcher_hits_allowed,pitcher_walks,pitcher_outs",
 };
 
 const MARKET_LABELS = {
   h2h: "Moneyline", spreads: "Spread", totals: "Total",
-  player_points: "Player Points", player_rebounds: "Player Rebounds", player_assists: "Player Assists", player_threes: "Player Threes",
-  player_pass_yds: "Passing Yards", player_rush_yds: "Rushing Yards", player_reception_yds: "Receiving Yards", player_receptions: "Receptions",
-  player_shots_on_goal: "Shots on Goal", pitcher_strikeouts: "Pitcher Strikeouts", batter_total_bases: "Total Bases", batter_hits: "Hits",
+  player_points: "Points", player_rebounds: "Rebounds", player_assists: "Assists", player_threes: "3-Pointers Made",
+  player_steals: "Steals", player_blocks: "Blocks", player_turnovers: "Turnovers",
+  player_points_rebounds_assists: "Pts + Reb + Ast", player_points_rebounds: "Pts + Reb", player_points_assists: "Pts + Ast", player_rebounds_assists: "Reb + Ast", player_blocks_steals: "Blocks + Steals",
+  player_pass_yds: "Passing Yards", player_pass_tds: "Passing TDs", player_pass_completions: "Completions", player_pass_attempts: "Pass Attempts", player_pass_interceptions: "Interceptions",
+  player_rush_yds: "Rushing Yards", player_rush_attempts: "Rush Attempts", player_reception_yds: "Receiving Yards", player_receptions: "Receptions", player_rush_reception_yds: "Rush + Rec Yards",
+  player_kicking_points: "Kicking Points", player_tackles_assists: "Tackles + Assists",
+  player_shots_on_goal: "Shots on Goal", player_goals: "Goals", player_blocked_shots: "Blocked Shots", player_power_play_points: "Power Play Points", player_total_saves: "Goalie Saves",
+  pitcher_strikeouts: "Strikeouts", pitcher_hits_allowed: "Hits Allowed", pitcher_walks: "Walks Allowed", pitcher_outs: "Outs Recorded",
+  batter_total_bases: "Total Bases", batter_hits: "Hits", batter_rbis: "RBIs", batter_runs_scored: "Runs", batter_home_runs: "Home Runs", batter_stolen_bases: "Stolen Bases", batter_hits_runs_rbis: "Hits + Runs + RBIs", batter_walks: "Walks",
 };
 const marketLabel = (k) => MARKET_LABELS[k] || k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const marketCat = (k) => (k === "h2h" || k === "spreads" || k === "totals" ? k : "props");
@@ -444,9 +454,13 @@ const marketCat = (k) => (k === "h2h" || k === "spreads" || k === "totals" ? k :
 /* rough per-market standard deviation (in the stat's own units), used only to price a
    DFS line that no sharp book hangs exactly. Estimates, deliberately conservative. */
 const MARKET_SIGMA = {
-  player_points: 9, player_rebounds: 3.3, player_assists: 2.8, player_threes: 1.6,
-  player_pass_yds: 46, player_rush_yds: 26, player_reception_yds: 26, player_receptions: 2,
-  player_shots_on_goal: 1.6, pitcher_strikeouts: 2.1, batter_total_bases: 1.3, batter_hits: 0.95,
+  player_points: 9, player_rebounds: 3.3, player_assists: 2.8, player_threes: 1.6, player_steals: 1.3, player_blocks: 1.2, player_turnovers: 1.6,
+  player_points_rebounds_assists: 11, player_points_rebounds: 10, player_points_assists: 10, player_rebounds_assists: 4.6, player_blocks_steals: 1.8,
+  player_pass_yds: 46, player_pass_tds: 1, player_pass_completions: 5.5, player_pass_attempts: 7, player_pass_interceptions: 0.8,
+  player_rush_yds: 26, player_rush_attempts: 4, player_reception_yds: 26, player_receptions: 2, player_rush_reception_yds: 30, player_kicking_points: 3, player_tackles_assists: 2.6,
+  player_shots_on_goal: 1.6, player_goals: 0.8, player_blocked_shots: 1.3, player_power_play_points: 0.8, player_total_saves: 7.5,
+  pitcher_strikeouts: 2.1, pitcher_hits_allowed: 2, pitcher_walks: 1.1, pitcher_outs: 4.5,
+  batter_total_bases: 1.3, batter_hits: 0.95, batter_rbis: 1.1, batter_runs_scored: 0.9, batter_home_runs: 0.7, batter_stolen_bases: 0.6, batter_hits_runs_rbis: 1.6, batter_walks: 0.9,
 };
 
 /* DFS pick'em apps. Payouts are the commonly published defaults and vary by promo and
@@ -508,7 +522,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const DEFAULT_SETTINGS = {
   mode: "demo", apiKey: "", regions: ["us", "us2", "eu", "us_ex"],
   leagues: ["americanfootball_nfl", "basketball_nba", "icehockey_nhl", "americanfootball_ncaaf", "baseball_mlb", "soccer_epl"],
-  props: false, propEvents: 4, refreshSec: 0, theme: "auto", liveTick: true, reqMode: "books", dfs: true,
+  props: false, propEvents: 5, refreshSec: 0, theme: "auto", liveTick: true, reqMode: "books", dfs: true,
 };
 const DEFAULT_FILTERS = {
   devig: "worst",
@@ -771,9 +785,10 @@ const DEMO_TEAMS = {
 const FIRST = ["Jalen", "Marcus", "Tyler", "Devin", "Isaiah", "Cole", "Andre", "Nico", "Brandon", "Derrick", "Mason", "Trey", "Caleb", "Jordan", "Luka", "Evan", "Darius", "Miles", "Zion", "Owen"];
 const LAST = ["Holloway", "Pruitt", "Okafor", "Brennan", "Castillo", "Whitfield", "Avery", "Sorensen", "Mbeki", "Lindqvist", "Garrity", "Navarro", "Kessler", "Abbott", "Fairbanks", "Dorsey", "Valente", "Hartman", "Quinlan", "Rourke"];
 const DEMO_PROPS = {
-  basketball_nba: [["player_points", 12.5, 31.5], ["player_rebounds", 4.5, 12.5], ["player_assists", 2.5, 10.5], ["player_threes", 1.5, 4.5]],
-  americanfootball_nfl: [["player_pass_yds", 214.5, 289.5], ["player_rush_yds", 42.5, 94.5], ["player_reception_yds", 38.5, 88.5], ["player_receptions", 3.5, 7.5]],
-  icehockey_nhl: [["player_shots_on_goal", 1.5, 4.5], ["player_points", 0.5, 0.5]],
+  basketball_nba: [["player_points", 12.5, 31.5], ["player_rebounds", 4.5, 12.5], ["player_assists", 2.5, 10.5], ["player_threes", 1.5, 4.5], ["player_steals", 0.5, 1.5], ["player_blocks", 0.5, 1.5], ["player_turnovers", 1.5, 3.5], ["player_points_rebounds_assists", 24.5, 44.5], ["player_points_rebounds", 18.5, 38.5], ["player_points_assists", 16.5, 36.5], ["player_rebounds_assists", 7.5, 17.5]],
+  americanfootball_nfl: [["player_pass_yds", 214.5, 289.5], ["player_pass_tds", 1.5, 2.5], ["player_pass_completions", 18.5, 26.5], ["player_pass_attempts", 28.5, 40.5], ["player_rush_yds", 42.5, 94.5], ["player_rush_attempts", 9.5, 19.5], ["player_receptions", 3.5, 7.5], ["player_reception_yds", 38.5, 88.5], ["player_rush_reception_yds", 55.5, 120.5], ["player_kicking_points", 6.5, 9.5], ["player_tackles_assists", 5.5, 9.5]],
+  americanfootball_ncaaf: [["player_pass_yds", 180.5, 320.5], ["player_pass_tds", 1.5, 2.5], ["player_rush_yds", 50.5, 120.5], ["player_rush_attempts", 10.5, 22.5], ["player_receptions", 2.5, 6.5], ["player_reception_yds", 30.5, 90.5], ["player_kicking_points", 5.5, 10.5]],
+  icehockey_nhl: [["player_shots_on_goal", 1.5, 4.5], ["player_points", 0.5, 1.5], ["player_goals", 0.5, 0.5], ["player_assists", 0.5, 1.5], ["player_blocked_shots", 0.5, 2.5], ["player_power_play_points", 0.5, 0.5], ["player_total_saves", 24.5, 32.5]],
 };
 const SHARP_DEMO = { pinnacle: { vig: 0.024, sd: 0.012, cov: 1, pcov: 0.75 }, circasports: { vig: 0.034, sd: 0.02, cov: 0.8, pcov: 0.3 }, novig: { vig: 0.02, sd: 0.025, cov: 0.6, pcov: 0.4 } };
 const SOFT_DEMO = ["draftkings", "fanduel", "betmgm", "williamhill_us", "espnbet", "fanatics", "betrivers", "hardrockbet", "ballybet", "bovada", "betonlineag", "prophetx"];
@@ -857,26 +872,29 @@ function buildDemo() {
       const props = DEMO_PROPS[lg];
       if (props) {
         const names = new Set();
-        while (names.size < 6) names.add(pick(FIRST)[0] + ". " + pick(LAST));
-        [...names].forEach((nm, k) => {
-          const [key, lo, hi] = props[k % props.length];
-          const line = lo === hi ? lo : Math.floor(lo + rnd() * (hi - lo)) + 0.5;
-          const po = 0.5 + gauss() * 0.05;
-          const sigma = MARKET_SIGMA[key] || 2;
-          const mu = line + sigma * normInv(Math.min(0.99, Math.max(0.01, po))); /* where the sharp line sits at 50/50 */
-          const pOverAt = (L) => Math.min(0.97, Math.max(0.03, normCdf((mu - L) / sigma)));
-          const g = mk(key, `${key}|${nm}|${line}`, ["Over", "Under"], line, nm, [po, 1 - po]);
-          g.order.forEach((n) => (g.out[n].point = line));
-          /* alternate sharp lines so a DFS number between them can be priced by interpolation */
-          for (const off of [-1, 1]) {
-            const al = line + off; if (al < 0.5) continue;
-            const p2 = pOverAt(al);
-            const ag = mk(key, `${key}|${nm}|${al}`, ["Over", "Under"], al, nm, [p2, 1 - p2]);
-            ag.order.forEach((n) => (ag.out[n].point = al));
-            thin(ag);
+        while (names.size < 7) names.add(pick(FIRST)[0] + ". " + pick(LAST));
+        [...names].forEach((nm) => {
+          /* each player carries a few different stat markets, so the board has depth */
+          const mine = [...props].sort(() => rnd() - 0.5).slice(0, 2 + Math.floor(rnd() * 3));
+          for (const [key, lo, hi] of mine) {
+            const line = lo === hi ? lo : Math.floor(lo + rnd() * (hi - lo)) + 0.5;
+            const po = 0.5 + gauss() * 0.05;
+            const sigma = MARKET_SIGMA[key] || 2;
+            const mu = line + sigma * normInv(Math.min(0.99, Math.max(0.01, po))); /* where the sharp line sits at 50/50 */
+            const pOverAt = (L) => Math.min(0.97, Math.max(0.03, normCdf((mu - L) / sigma)));
+            const g = mk(key, `${key}|${nm}|${line}`, ["Over", "Under"], line, nm, [po, 1 - po]);
+            g.order.forEach((n) => (g.out[n].point = line));
+            /* alternate sharp lines so a DFS number between them can be priced by interpolation */
+            for (const off of [-1, 1]) {
+              const al = line + off; if (al < 0.5) continue;
+              const p2 = pOverAt(al);
+              const ag = mk(key, `${key}|${nm}|${al}`, ["Over", "Under"], al, nm, [p2, 1 - p2]);
+              ag.order.forEach((n) => (ag.out[n].point = al));
+              thin(ag);
+            }
+            /* DFS apps hang their own line, often a little off the sharp number — that gap is the edge */
+            addDemoDfs(ev, key, nm, line, mu, sigma);
           }
-          /* DFS apps hang their own line, often a little off the sharp number — that gap is the edge */
-          addDemoDfs(ev, key, nm, line, mu, sigma);
         });
       }
       events.push(ev);
@@ -1408,15 +1426,20 @@ function oddsTable() {
   const evs = S.events.filter((e) => e.league === S.os.league).sort((a, b) => a.start - b.start);
   const bookSet = new Set();
   const blocks = [];
+  const sportsbookCount = (g) => g.order.reduce((s, n) => s + Object.keys(g.out[n].prices).filter((b) => !BOOKS[b]?.dfs).length, 0);
   for (const ev of evs) {
     let gs = ev.markets.filter((g) => g.cat === S.os.cat);
     if (S.os.cat === "spreads" || S.os.cat === "totals") {
-      const count = (g) => Object.keys(g.out[g.order[0]].prices).length;
-      gs = gs.length ? [gs.reduce((a, b) => (count(b) > count(a) ? b : a))] : [];
+      gs = gs.length ? [gs.reduce((a, b) => (sportsbookCount(b) > sportsbookCount(a) ? b : a))] : [];
+    } else if (S.os.cat === "props") {
+      /* one row per player+stat: the line the most sportsbooks hang */
+      const byPlayer = new Map();
+      for (const g of gs) { const key = g.player + "|" + g.key; const cur = byPlayer.get(key); if (!cur || sportsbookCount(g) > sportsbookCount(cur)) byPlayer.set(key, g); }
+      gs = [...byPlayer.values()].filter((g) => sportsbookCount(g) > 0).sort((a, b) => (a.player || "").localeCompare(b.player || "") || a.key.localeCompare(b.key));
     }
     for (const g of gs) {
-      if (q && !`${ev.home} ${ev.away} ${g.player || ""}`.toLowerCase().includes(q)) continue;
-      for (const n of g.order) for (const b in g.out[n].prices) bookSet.add(b);
+      if (q && !`${ev.home} ${ev.away} ${g.player || ""} ${marketLabel(g.key)}`.toLowerCase().includes(q)) continue;
+      for (const n of g.order) for (const b in g.out[n].prices) if (!BOOKS[b]?.dfs) bookSet.add(b);
       blocks.push({ ev, g });
     }
   }
@@ -1429,7 +1452,7 @@ function oddsTable() {
     html += `<tr class="ev-h"><td class="stick"><span class="lg-tag">${esc(leagueShort(ev.league))}</span> ${esc(head)}</td><td colspan="${books.length + 2}" class="muted" style="font-weight:400;font-size:12px">${isLive(ev) ? '<span class="live-tag">LIVE</span> ' : ""}${fmtStart(ev.start)}${g.cat === "props" ? " · " + esc(evTitle(ev)) : ""}${g.fair ? ` · sharp hold ${fmtPct(g.fair.hold)}` : ""}</td></tr>`;
     g.order.forEach((n, i) => {
       const prices = g.out[n].prices;
-      let best = null; for (const b in prices) if (!best || amToDec(prices[b].price) > amToDec(prices[best].price)) best = b;
+      let best = null; for (const b in prices) if (!BOOKS[b]?.dfs && (!best || amToDec(prices[b].price) > amToDec(prices[best].price))) best = b;
       const p = g.fair?.p[i];
       html += `<tr><td class="stick">${esc(g.cat === "props" ? n + " " + g.line : betLabel(ev, g, n))}</td>
         <td class="px best">${best ? fmtAm(prices[best].price) : "—"}<span class="e" style="color:var(--muted)">${best ? esc(BOOKS[best]?.abbr || best) : ""}</span></td>
