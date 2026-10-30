@@ -221,18 +221,29 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; backgr
 
 /* ---------- DFS pick'em ---------- */
 .dfs-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.dfs-grid { display: grid; grid-template-columns: 74px minmax(130px, 1.3fr) minmax(130px, 1.2fr) 86px 66px 86px 56px 44px; align-items: center; gap: 10px; padding: 10px 14px; }
+.dfs-grid { display: grid; grid-template-columns: 112px minmax(140px, 1.5fr) minmax(130px, 1.2fr) minmax(110px, .9fr) 44px; align-items: center; gap: 12px; padding: 10px 14px; }
 .dfs-head { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); border-bottom: 1px solid var(--line); background: var(--surface-2); }
 .dfs-row { border-bottom: 1px solid var(--line-soft); }
 .dfs-row:hover { background: var(--surface-2); }
 .dfs-row.added { background: var(--accent-soft); }
 .dfs-row .teams { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dfs-row .meta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
-.dfs-row .bet { font-weight: 600; white-space: nowrap; }
+.dfs-row .bet { font-weight: 700; white-space: nowrap; }
 .dfs-row .mk { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dfs-row .fair { font-family: var(--mono); font-weight: 700; }
-.dfs-row .sub { font-size: 11px; color: var(--dim); font-family: var(--mono); }
+.dfs-row .sub { font-size: 11px; color: var(--dim); font-family: var(--mono); margin-top: 2px; }
 .dfs-grid > div { min-width: 0; }
+/* chance-to-hit chip: green = likely, amber = marginal, red = below the line you need */
+.chance { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 6px 4px; border-radius: 8px; font-family: var(--mono); line-height: 1.1; }
+.chance b { font-size: 17px; font-weight: 700; }
+.chance span { font-size: 9px; letter-spacing: .04em; opacity: .85; margin-top: 2px; }
+.chance.c-hot { background: var(--accent); color: var(--accent-ink); }
+.chance.c-good { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.chance.c-warn { background: var(--warn-soft); color: var(--warn); }
+.chance.c-bad { background: var(--neg-soft); color: var(--neg); }
+.proj .big { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+.proj .diff { font-weight: 600; font-size: 11px; }
+.legend-line { font-size: 12px; color: var(--muted); line-height: 1.5; margin: -2px 0 12px; }
+.legend-line b { color: var(--text); font-weight: 600; }
 .c-add { display: flex; justify-content: flex-end; }
 .c-add .trk { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--accent); border: 1px solid var(--accent-line); }
 .c-add .trk.done { background: var(--accent); color: var(--accent-ink); }
@@ -357,8 +368,8 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; backgr
   .ev-grid { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ev . acts" "event event event" "bet bet bet" "book fair stake"; gap: 8px 10px; padding: 12px; }
   .c-ev { grid-area: ev; } .c-event { grid-area: event; } .c-bet { grid-area: bet; } .c-book { grid-area: book; } .c-fair { grid-area: fair; } .c-stake { grid-area: stake; text-align: right; } .c-act { grid-area: acts; }
   .c-book .bk-name { display: inline; }
-  .dfs-grid { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "edge player add" "pick pick pick" "fair need gap"; gap: 8px 10px; padding: 12px; }
-  .c-edge { grid-area: edge; } .c-player { grid-area: player; } .c-pick { grid-area: pick; } .c-fair { grid-area: fair; } .c-need { grid-area: need; } .c-gap { grid-area: gap; } .c-conf { display: none; } .c-add { grid-area: add; }
+  .dfs-grid { grid-template-columns: 92px minmax(0, 1fr) auto; grid-template-areas: "chance player add" "chance pick pick" "chance proj proj"; gap: 6px 12px; padding: 12px; align-items: start; }
+  .c-chance { grid-area: chance; align-self: center; } .c-player { grid-area: player; } .c-pick { grid-area: pick; } .c-proj { grid-area: proj; } .c-add { grid-area: add; align-self: start; }
   .c-fair::before, .c-stake::before, .c-need::before, .c-gap::before { content: attr(data-l); display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
   .detail { padding: 4px 12px 14px; }
   .arb-grid, .calc-grid { grid-template-columns: 1fr; }
@@ -1493,10 +1504,10 @@ function viewPickem() {
         <p class="note" style="margin-top:8px">How the fair line is priced: <b>exact</b> a sharp book hangs the same number, <b>interp</b> between two sharp lines, <b>est</b> modelled from the nearest.</p>
       </div>
       <div class="fs">
-        <div class="label">Thresholds</div>
-        <div class="frow"><span>Min edge over breakeven</span><input type="number" step="0.5" value="${F.dfs.minEdge}" data-df="minEdge" />%</div>
-        <div class="frow"><span>Hide started games</span><input type="checkbox" ${F.dfs.hideStarted ? "checked" : ""} data-df="hideStarted" /></div>
-        <div class="frow"><span>Entry $ (for payout)</span><input type="number" min="1" step="5" value="${F.dfs.entry}" data-df="entry" /></div>
+        <div class="label">Show me</div>
+        <div class="frow"><span>Chance must beat need by</span><input type="number" step="0.5" value="${F.dfs.minEdge}" data-df="minEdge" />%</div>
+        <div class="frow"><span>Hide games already started</span><input type="checkbox" ${F.dfs.hideStarted ? "checked" : ""} data-df="hideStarted" /></div>
+        <div class="frow"><span>Entry $ (for payout math)</span><input type="number" min="1" step="5" value="${F.dfs.entry}" data-df="entry" /></div>
       </div>
       <div class="fs"><button class="btn sm ghost" data-act="dfs-reset" style="width:100%">Reset Pick'em filters</button></div>
     </aside>
@@ -1507,12 +1518,13 @@ function viewPickem() {
       <div class="kpis" id="dfs-kpis"></div>
       <div class="toolbar">
         <button class="btn mobile-only" data-act="filters">${ICON.filter} Filters</button>
-        <div class="search"><input id="dfs-search" type="search" placeholder="Search player, market, team…" value="${esc(F.dfs.search)}" /></div>
+        <div class="search"><input id="dfs-search" type="search" placeholder="Search player, stat, team…" value="${esc(F.dfs.search)}" /></div>
       </div>
+      <p class="legend-line"><b>Chance to hit</b> is how often the pick wins, worked out from sportsbook odds. Green means it clears the win rate your entry needs. <b>Books expect</b> is where the sportsbooks set the number — the further it sits your way, the softer the app's line.</p>
       <div class="dfs-wrap">
         <div class="card tbl" style="min-width:0">
           <div class="dfs-grid dfs-head">
-            <div>Edge</div><div>Player</div><div>Pick</div><div>Fair %</div><div class="c-need">Need</div><div class="c-gap">Line gap</div><div class="c-conf">Conf</div><div></div>
+            <div>Chance to hit</div><div>Player</div><div>Your pick</div><div>Books expect</div><div></div>
           </div>
           <div id="dfs-results"></div>
         </div>
@@ -1527,11 +1539,11 @@ function renderPickem() {
     const n = DFSPICKS.length, be = dfsBreakeven(F.dfs.app, F.dfs.legs);
     const top = n ? DFSPICKS[0] : null;
     k.innerHTML = [
-      ["+EV picks", n, `${DFS_PAYOUTS[F.dfs.app].name} · ${F.dfs.legs}-pick`],
-      ["Breakeven / leg", be ? fmtPct(be) : "—", "win rate each leg needs"],
-      ["Best edge", top && top.edge != null ? fmtSigned(top.edge) : "—", top ? `${top.player} ${top.side}` : "over breakeven"],
-      ["In your slate", S.slate.length, slateSummaryLine()],
-    ].map(([l, v, s], i) => `<div class="card kpi"><div class="label">${l}</div><div class="v ${i === 2 ? "pos" : ""}">${v}</div><div class="s">${esc(s)}</div></div>`).join("");
+      ["Good picks", n, `${DFS_PAYOUTS[F.dfs.app].name} · ${F.dfs.legs}-pick`, false],
+      ["Each leg needs", be ? fmtPct(be, 0) : "—", "to win, to break even", false],
+      ["Best chance", top ? fmtPct(top.p) : "—", top ? `${top.player} ${top.side} ${top.line}` : "to hit", true],
+      ["In your slate", S.slate.length, slateSummaryLine(), false],
+    ].map(([l, v, s, hi]) => `<div class="card kpi"><div class="label">${l}</div><div class="v ${hi ? "pos" : ""}">${v}</div><div class="s">${esc(s)}</div></div>`).join("");
   }
   const box = $("#dfs-results");
   if (box) {
@@ -1545,19 +1557,24 @@ function renderPickem() {
   const sl = $("#slate"); if (sl) sl.innerHTML = slateHTML();
 }
 const fmtSigned = (x) => (x >= 0 ? "+" : "") + (x * 100).toFixed(1) + "%";
+/* color the chance chip by how far the pick clears the win rate it needs */
+function chanceClass(p) {
+  if (p.be == null) return p.p >= 0.6 ? "c-good" : "c-warn";
+  const e = p.p - p.be;
+  return e >= 0.05 ? "c-hot" : e >= 0 ? "c-good" : e >= -0.02 ? "c-warn" : "c-bad";
+}
 function dfsRow(p, added) {
   const fl = S.flash[`${p.ev.id}|${p.g.id}|${p.side}|${p.app}`];
-  const edgeCls = p.edge == null ? "low" : p.edge >= 0.06 ? "hot" : p.edge < 0.02 ? "low" : "";
-  const gapTxt = p.gap == null ? "—" : `${p.gap > 0 ? "+" : ""}${p.gap.toFixed(1)}`;
+  /* how far the sportsbook projection sits in your favor, in the stat's own units */
+  const edgeUnits = p.side === "Over" ? p.mu - p.line : p.line - p.mu;
+  const favor = edgeUnits == null ? "" : `<span class="diff ${edgeUnits > 0 ? "pos" : "neg"}">${edgeUnits > 0 ? "+" : ""}${edgeUnits.toFixed(1)} your way</span>`;
+  const estTag = p.conf === "model" ? ' <span class="dim" title="Estimated from the nearest sharp line">est</span>' : p.conf === "exact" ? ' <span class="dim" title="A sportsbook hangs this exact line">✓</span>' : "";
   return `
   <div class="dfs-grid dfs-row ${added ? "added" : ""}">
-    <div class="c-edge"><span class="evb ${edgeCls}">${p.edge == null ? "—" : fmtSigned(p.edge)}</span></div>
+    <div class="c-chance"><span class="chance ${chanceClass(p)}"><b>${(p.p * 100).toFixed(1)}%</b><span>NEED ${p.be ? (p.be * 100).toFixed(0) + "%" : "—"}</span></span></div>
     <div class="c-player"><div class="meta"><span class="lg-tag">${esc(leagueShort(p.ev.league))}</span>${isLive(p.ev) ? '<span class="live-tag">LIVE</span>' : ""}<span>${esc(evTitle(p.ev))}</span></div><div class="teams">${esc(p.player)}</div></div>
-    <div class="c-pick"><div class="bet ${fl ? "flash-up" : ""}">${p.side === "Over" ? "▲" : "▼"} ${esc(p.side)} ${p.line}</div><div class="mk">${bookChip(p.app, false)}${esc(marketLabel(p.market))}</div></div>
-    <div class="c-fair" data-l="Fair"><div class="fair">${fmtPct(p.p)}</div><div class="sub">fair ${fmtAm(probToAm(p.p))}</div></div>
-    <div class="c-need" data-l="Need"><div class="mono">${p.be ? fmtPct(p.be) : "—"}</div></div>
-    <div class="c-gap" data-l="Gap"><div class="mono ${p.gap > 0 ? "pos" : p.gap < 0 ? "neg" : ""}">${gapTxt}</div><div class="sub">sharp ${p.mu != null ? p.mu.toFixed(1) : "—"}</div></div>
-    <div class="c-conf"><span class="conf-tag conf-${p.conf}">${CONF_LABEL[p.conf]}</span></div>
+    <div class="c-pick"><div class="bet ${fl ? "flash-up" : ""}">${p.side === "Over" ? "▲" : "▼"} ${esc(p.side)} ${p.line}</div><div class="mk">${bookChip(p.app, false)}${esc(marketLabel(p.market))}${estTag}</div></div>
+    <div class="c-proj proj" data-l="Books expect"><div class="big">${p.mu != null ? p.mu.toFixed(1) : "—"}</div><div class="sub">${favor}</div></div>
     <div class="c-add"><button class="trk ${added ? "done" : ""}" data-act="slate-add" data-key="${esc(p.key)}" title="${added ? "In slate" : "Add to slate"}" aria-label="Add to slate">${added ? ICON.check : ICON.plus}</button></div>
   </div>`;
 }
