@@ -473,7 +473,9 @@ const DFS_PAYOUTS = {
   sleeper: { name: "Sleeper", power: { 2: 3, 3: 6, 4: 10, 5: 19, 6: 36 },
     flex: { 3: { 3: 6, 2: 0 }, 4: { 4: 10, 3: 1.5 }, 5: { 5: 19, 4: 1.75 }, 6: { 6: 36, 5: 2, 4: 0.4 } } },
 };
-const DFS_BOOKS = ["prizepicks", "underdog", "sleeper", "draftkings_pick6", "dabble_au"];
+const DFS_BOOKS = ["prizepicks", "underdog", "sleeper"]; /* the only DFS apps we use */
+/* other pick'em apps the us_dfs region can return — drop them so they never show */
+const DFS_IGNORE = new Set(["draftkings_pick6", "dabble_au", "parlayplay", "boomfantasy", "fliff", "hotstreak", "jockmkt", "betr_picks", "chalkboard", "pick6", "sleeper_pick6"]);
 
 const BOOKS = {
   pinnacle: { name: "Pinnacle", abbr: "PIN", color: "#D9480F" },
@@ -497,8 +499,6 @@ const BOOKS = {
   prizepicks: { name: "PrizePicks", abbr: "PP", color: "#5B28C4", dfs: true },
   underdog: { name: "Underdog", abbr: "UD", color: "#B01644", dfs: true },
   sleeper: { name: "Sleeper", abbr: "SLP", color: "#B5700B", dfs: true },
-  draftkings_pick6: { name: "DK Pick6", abbr: "P6", color: "#1C7C3B", dfs: true },
-  dabble_au: { name: "Dabble", abbr: "DAB", color: "#0E7490", dfs: true },
 };
 function registerBook(key, title) {
   if (BOOKS[key]) return;
@@ -670,6 +670,7 @@ function groupKey(mkey, o, ev) {
 function ingestApiEvent(e, league, existing) {
   const ev = existing || { id: e.id, league, home: e.home_team, away: e.away_team, start: Date.parse(e.commence_time), mmap: new Map() };
   for (const bk of e.bookmakers || []) {
+    if (DFS_IGNORE.has(bk.key)) continue; /* only PrizePicks, Underdog, Sleeper among DFS apps */
     registerBook(bk.key, bk.title);
     for (const m of bk.markets || []) {
       const t = Date.parse(m.last_update || bk.last_update) || Date.now();
