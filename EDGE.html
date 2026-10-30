@@ -182,7 +182,8 @@ input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; backgr
 .ev-row .age { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 .acts { display: flex; gap: 4px; justify-content: flex-end; }
 .acts button { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); }
-.acts button:hover { color: var(--text); border-color: var(--dim); }
+.acts button:hover, .acts a:hover { color: var(--text); border-color: var(--dim); }
+.acts a.go { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--fair); border: 1px solid var(--fair-soft); }
 .acts button.trk { color: var(--accent); border-color: var(--accent-line); }
 .acts button.trk.done { background: var(--accent); color: var(--accent-ink); }
 .acts svg { width: 14px; height: 14px; }
@@ -412,6 +413,7 @@ function registerBook(key, title) {
   BOOKS[key] = { name: title || key, abbr, color: `hsl(${h % 360} 55% 38%)` };
 }
 const bookName = (k) => (BOOKS[k] || { name: k }).name;
+const safeLink = (u) => (typeof u === "string" && /^https:\/\//i.test(u) ? u : null);
 
 const METHODS = ["multiplicative", "additive", "power", "shin"];
 const METHOD_LABELS = { worst: "Worst case", multiplicative: "Multiplicative", additive: "Additive", power: "Power", shin: "Shin" };
@@ -426,12 +428,12 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const DEFAULT_SETTINGS = {
   mode: "demo", apiKey: "", regions: ["us", "us2", "eu", "us_ex"],
   leagues: ["americanfootball_nfl", "basketball_nba", "icehockey_nhl", "americanfootball_ncaaf", "soccer_epl"],
-  props: false, propEvents: 4, refreshSec: 0, theme: "auto", liveTick: true,
+  props: false, propEvents: 4, refreshSec: 0, theme: "auto", liveTick: true, reqMode: "books",
 };
 const DEFAULT_FILTERS = {
   devig: "worst",
   sharp: { pinnacle: 1, circasports: 0.6, novig: 0.4, betonlineag: 0, prophetx: 0 },
-  minSharp: 1, minEV: 1, minOdds: -250, maxOdds: 400, maxHold: 8,
+  minSharp: 1, minEV: 1, minOdds: -250, maxOdds: 400, maxHold: 8, maxWidth: 30, window: "any",
   cats: { h2h: true, spreads: true, totals: true, props: true },
   leagues: [],
   books: ["draftkings", "fanduel", "betmgm", "williamhill_us", "espnbet", "fanatics", "betrivers", "hardrockbet", "ballybet", "bovada", "betonlineag", "prophetx"],
@@ -494,6 +496,9 @@ const DEVIG = {
   },
 };
 
+/* market width in cents between the two sides of a sharp market: -110/-110 → 20, -150/+130 → 20 */
+const marketWidth = (pr) => Math.abs(sum(pr.map((a) => (a < 0 ? a + 100 : a - 100))));
+
 /* Kelly fraction of bankroll for win prob p at decimal odds d */
 const kellyFrac = (p, d) => Math.max(0, (p * d - 1) / (d - 1));
 const stakeFor = (p, d) => {
@@ -515,6 +520,11 @@ function fmtAge(t) {
   if (s < 60) return s + "s"; if (s < 3600) return Math.round(s / 60) + "m"; return Math.round(s / 3600) + "h";
 }
 const isLive = (ev) => ev.start <= Date.now();
+function inWindow(ev) {
+  if (F.window === "any") return true;
+  if (F.window === "today") return new Date(ev.start).toDateString() === new Date().toDateString() || isLive(ev);
+  return ev.start - Date.now() <= Number(F.window) * 3600e3;
+}
 
 /* ---------------- helpers ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -528,6 +538,7 @@ const ICON = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
   filter: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>',
 };
 function bookChip(k, withName = true) {
@@ -564,12 +575,13 @@ function ingestApiEvent(e, league, existing) {
     registerBook(bk.key, bk.title);
     for (const m of bk.markets || []) {
       const t = Date.parse(m.last_update || bk.last_update) || Date.now();
+      const mlink = m.link || bk.link || null;
       for (const o of m.outcomes || []) {
         const g0 = groupKey(m.key, o, ev); if (!g0) continue;
         let g = ev.mmap.get(g0.gid);
         if (!g) { g = { id: g0.gid, key: m.key, cat: marketCat(m.key), line: g0.line, player: g0.player, order: [], out: {} }; ev.mmap.set(g0.gid, g); }
         if (!g.out[o.name]) { g.out[o.name] = { name: o.name, point: o.point, prices: {} }; g.order.push(o.name); }
-        g.out[o.name].prices[bk.key] = { price: o.price, t };
+        g.out[o.name].prices[bk.key] = { price: o.price, t, link: o.link || mlink };
       }
     }
   }
@@ -586,30 +598,52 @@ function finalizeEvent(ev) {
 
 /* ---------------- live fetch: The Odds API v4 ---------------- */
 async function oddsApi(path, params) {
-  const qs = new URLSearchParams({ apiKey: S.settings.apiKey, oddsFormat: "american", ...params });
-  const r = await fetch(`https://api.the-odds-api.com/v4/${path}?${qs}`);
-  const rem = r.headers.get("x-requests-remaining"), used = r.headers.get("x-requests-used");
-  if (rem != null) S.credits = { rem: +rem, used: +used };
+  const qs = new URLSearchParams({ apiKey: S.settings.apiKey, ...params });
+  let r;
+  try { r = await fetch(`https://api.the-odds-api.com/v4/${path}?${qs}`); }
+  catch { throw new Error("Couldn't reach The Odds API — check your connection."); }
+  const rem = r.headers.get("x-requests-remaining"), used = r.headers.get("x-requests-used"), last = r.headers.get("x-requests-last");
+  if (rem != null) S.credits = { rem: +rem, used: +used, last: last == null ? null : +last };
   if (!r.ok) {
     let msg = r.status + " " + r.statusText;
     try { const j = await r.json(); if (j.message) msg = j.message; } catch {}
-    throw new Error(msg);
+    if (r.status === 401) msg = "API key rejected (401) — check the key in Settings. " + msg;
+    if (r.status === 429) msg = "Out of API credits or rate-limited (429). " + msg;
+    const e = new Error(msg); e.status = r.status; throw e;
   }
   return r.json();
+}
+/* books to request directly: sharp books with weight + your books. Cheaper than whole regions. */
+function requestBooks() {
+  return [...new Set([...Object.keys(F.sharp).filter((b) => F.sharp[b] > 0), ...F.books])];
 }
 async function fetchLive() {
   const st = S.settings;
   if (!st.apiKey) throw new Error("Add your The Odds API key in Settings to load live odds.");
-  const regions = st.regions.join(",");
   const events = [], errors = [];
-  await Promise.all(st.leagues.map(async (lg) => {
+  /* /sports is free: skip leagues that are out of season instead of burning credits */
+  let active = null;
+  try { active = new Set((await oddsApi("sports", {})).filter((x) => x.active).map((x) => x.key)); }
+  catch (e) { if (e.status === 401 || e.status === 429) throw e; }
+  const leagues = active ? st.leagues.filter((l) => active.has(l)) : st.leagues;
+  S.skipped = st.leagues.filter((l) => !leagues.includes(l));
+  if (!leagues.length) throw new Error("None of your selected leagues are in season right now — pick others in Settings.");
+  let scope = st.reqMode === "books" && requestBooks().length ? { bookmakers: requestBooks().join(",") } : { regions: st.regions.join(",") };
+  const base = { oddsFormat: "american", includeLinks: "true" };
+  await Promise.all(leagues.map(async (lg) => {
     try {
-      const data = await oddsApi(`sports/${lg}/odds`, { regions, markets: "h2h,spreads,totals" });
+      let data;
+      try { data = await oddsApi(`sports/${lg}/odds`, { ...base, ...scope, markets: "h2h,spreads,totals" }); }
+      catch (e) {
+        if (!scope.bookmakers || e.status === 401 || e.status === 429) throw e;
+        scope = { regions: st.regions.join(",") }; /* unknown book key etc. — fall back to regions */
+        data = await oddsApi(`sports/${lg}/odds`, { ...base, ...scope, markets: "h2h,spreads,totals" });
+      }
       const list = data.map((e) => ingestApiEvent(e, lg));
       if (st.props && PROP_MARKETS[lg]) {
         const upcoming = list.filter((e) => e.start > Date.now()).sort((a, b) => a.start - b.start).slice(0, st.propEvents);
         await Promise.all(upcoming.map(async (ev) => {
-          try { ingestApiEvent(await oddsApi(`sports/${lg}/events/${ev.id}/odds`, { regions, markets: PROP_MARKETS[lg] }), lg, ev); }
+          try { ingestApiEvent(await oddsApi(`sports/${lg}/events/${ev.id}/odds`, { ...base, ...scope, markets: PROP_MARKETS[lg] }), lg, ev); }
           catch (e) { errors.push(leagueShort(lg) + " props: " + e.message); }
         }));
       }
@@ -621,7 +655,7 @@ async function fetchLive() {
   return events;
 }
 function creditEstimate() {
-  const st = S.settings, r = st.regions.length;
+  const st = S.settings, r = st.reqMode === "books" ? Math.max(1, Math.ceil(requestBooks().length / 10)) : st.regions.length;
   let c = st.leagues.length * 3 * r;
   if (st.props) for (const lg of st.leagues) if (PROP_MARKETS[lg]) c += st.propEvents * PROP_MARKETS[lg].split(",").length * r;
   return c;
@@ -793,7 +827,9 @@ function fairFor(g) {
   for (const m of METHODS) methods[m] = g.order.map((_, i) => sum(used.map((u) => u.m[m][i] * u.w)) / W);
   const worst = g.order.map((_, i) => Math.min(...METHODS.map((m) => methods[m][i])));
   const hold = sum(used.map((u) => u.hold * u.w)) / W;
-  return { used, methods, worst, hold, p: F.devig === "worst" ? worst : methods[F.devig] };
+  const ref = used.find((u) => u.book === "pinnacle") || used[0];
+  const width = ref.prices.length === 2 ? marketWidth(ref.prices) : null;
+  return { used, methods, worst, hold, width, p: F.devig === "worst" ? worst : methods[F.devig] };
 }
 
 let OPPS = [], ARBS = [], LOWHOLD = [];
@@ -808,7 +844,7 @@ function analyze() {
       const fair = fairFor(g);
       g.fair = fair;
       /* arbitrage / low hold across books (independent of fair odds) */
-      if (g.order.length >= 2 && !(F.hideStarted && live)) {
+      if (g.order.length >= 2 && !(F.hideStarted && live) && inWindow(ev)) {
         const legs = g.order.map((n) => {
           let best = null;
           for (const [b, v] of Object.entries(g.out[n].prices)) {
@@ -832,12 +868,14 @@ function analyze() {
           if (!mine.has(b)) continue;
           const d = amToDec(v.price), e = p * d - 1;
           all.push({ book: b, price: v.price, ev: e, t: v.t });
-          if (!best || d > amToDec(best.price)) best = { book: b, price: v.price, ev: e, t: v.t };
+          if (!best || d > amToDec(best.price)) best = { book: b, price: v.price, ev: e, t: v.t, link: v.link };
         }
         if (best) recordHist(key, p, best.price);
         if (!best) return;
         if (!leagueOk(ev.league) || !F.cats[g.cat] || (F.hideStarted && live)) return;
         if (fair.used.length < F.minSharp || fair.hold * 100 > F.maxHold) return;
+        if (F.maxWidth > 0 && fair.width != null && fair.width > F.maxWidth) return;
+        if (!inWindow(ev)) return;
         if (best.ev * 100 < F.minEV || best.price < F.minOdds || best.price > F.maxOdds) return;
         if (S.hidden.has(key)) return;
         const label = betLabel(ev, g, name);
@@ -848,7 +886,7 @@ function analyze() {
           stake: stakeFor(p, d), kelly: kellyFrac(p, d),
           others: all.filter((x) => x.book !== best.book && x.price === best.price).map((x) => x.book),
           plus: all.filter((x) => x.book !== best.book && x.ev > 0).length,
-          fair, t: best.t,
+          fair, t: best.t, link: safeLink(best.link),
         });
       });
     }
@@ -949,6 +987,7 @@ function renderLive() {
 }
 function banner() {
   if (S.error) return `<div class="banner err">⚠ ${esc(S.error)}<button class="btn sm" data-act="settings">Settings</button></div>`;
+  if (S.settings.mode === "live" && S.skipped?.length) return `<div class="banner">Skipped (not in season right now): ${S.skipped.map((k) => esc(leagueShort(k))).join(", ")}<button class="btn sm" data-act="settings">Leagues</button></div>`;
   if (S.settings.mode === "demo") return `<div class="banner">Demo mode — prices are simulated so you can explore the tools. Add a The Odds API key to scan real sportsbooks.<button class="btn sm" data-act="settings">Go live</button></div>`;
   return "";
 }
@@ -997,6 +1036,11 @@ function filtersHTML() {
     ${sharpBooks.map((b) => `<div class="sharp-row">${bookChip(b)}<input type="range" min="0" max="1" step="0.1" value="${F.sharp[b]}" data-f="sharp" data-b="${b}" aria-label="${esc(bookName(b))} weight" /><span class="w">${(+F.sharp[b]).toFixed(1)}</span></div>`).join("")}
     <div class="frow"><span>Min sharp books</span><input type="number" min="1" max="5" step="1" value="${F.minSharp}" data-f="minSharp" /></div>
     <div class="frow"><span>Max sharp hold %</span><input type="number" min="0" max="20" step="0.5" value="${F.maxHold}" data-f="maxHold" /></div>
+    <div class="frow"><span>Max market width ¢ <span class="dim">(0 = off)</span></span><input type="number" min="0" max="200" step="5" value="${F.maxWidth}" data-f="maxWidth" /></div>
+  </div>
+  <div class="fs">
+    <div class="label">Game time</div>
+    ${seg("window", F.window, [["any", "Any"], ["today", "Today"], ["24", "24h"], ["48", "48h"]])}
   </div>
   <div class="fs">
     <div class="label">Thresholds</div>
@@ -1076,9 +1120,10 @@ function rowHTML(o, tracked) {
       ${o.others.length ? `<div class="also">also ${o.others.map((b) => esc(BOOKS[b]?.abbr || b)).join(", ")}</div>` : o.plus ? `<div class="also">+${o.plus} more +EV</div>` : ""}</div>
     <div class="c-fair" data-l="Fair"><div class="fair">${fmtAm(o.fairAm)}</div><div class="sub">${fmtPct(o.p)} win</div></div>
     <div class="c-stake" data-l="Bet size"><div class="stake">${fmtMoney(o.stake, o.stake < 10 ? 2 : 0)}</div><div class="sub">${fmtPct(Math.min(o.kelly * F.kelly, F.maxStakePct / 100), 2)} bank</div></div>
-    <div class="c-sharp"><div class="sharp">${esc(BOOKS[pin.book]?.abbr || pin.book)} ${pin.prices.map(fmtAm).join("/")}</div><div class="sub">${o.fair.used.length} sharp · ${fmtPct(o.fair.hold)}</div></div>
+    <div class="c-sharp"><div class="sharp">${esc(BOOKS[pin.book]?.abbr || pin.book)} ${pin.prices.map(fmtAm).join("/")}</div><div class="sub">${o.fair.used.length} sharp · ${o.fair.width != null ? o.fair.width + "¢" : fmtPct(o.fair.hold)}</div></div>
     <div class="c-age"><span class="age">${fmtAge(o.t)}</span></div>
     <div class="c-act"><div class="acts">
+      ${o.link ? `<a class="go" href="${esc(o.link)}" target="_blank" rel="noopener noreferrer" data-act="go" title="Open bet at ${esc(bookName(o.book))}" aria-label="Open at sportsbook">${ICON.ext}</a>` : ""}
       <button class="trk ${tracked ? "done" : ""}" data-act="track" data-key="${esc(o.key)}" title="${tracked ? "Tracked" : "Track bet"}" aria-label="Track bet">${tracked ? ICON.check : ICON.plus}</button>
       <button data-act="hide" data-key="${esc(o.key)}" title="Hide" aria-label="Hide bet">${ICON.x}</button>
       <button data-act="expand" data-key="${esc(o.key)}" title="Details" aria-label="Details">${ICON.chev}</button>
@@ -1416,7 +1461,9 @@ function openSettings() {
         <div class="seg"><button data-act="mode" data-val="demo" class="${st.mode === "demo" ? "on" : ""}">Demo (simulated)</button><button data-act="mode" data-val="live" class="${st.mode === "live" ? "on" : ""}">Live — The Odds API</button></div></div>
       <div><label class="field"><span>The Odds API key</span><input id="set-key" type="password" autocomplete="off" value="${esc(st.apiKey)}" placeholder="paste key" /></label>
         <p class="note" style="margin-top:6px">Get a key at <a href="https://the-odds-api.com" target="_blank" rel="noopener">the-odds-api.com</a>. It's stored only in this browser. Pinnacle is in the EU region and exchanges (Novig, ProphetX) in US exchanges — include those so the scanner has sharp lines to devig.</p></div>
-      <div><div class="label" style="margin-bottom:8px">Regions</div><div class="chips">${regions.map(([k, l]) => `<button class="chip ${st.regions.includes(k) ? "on" : ""}" data-act="region" data-k="${k}">${l}</button>`).join("")}</div></div>
+      <div><div class="label" style="margin-bottom:8px">Request odds by</div>
+        <div class="seg"><button data-act="reqmode" data-val="books" class="${st.reqMode === "books" ? "on" : ""}">My books + sharp books (cheaper)</button><button data-act="reqmode" data-val="regions" class="${st.reqMode !== "books" ? "on" : ""}">Whole regions</button></div></div>
+      <div><div class="label" style="margin-bottom:8px">Regions <span class="dim" style="letter-spacing:0;text-transform:none">(used in region mode and as fallback)</span></div><div class="chips">${regions.map(([k, l]) => `<button class="chip ${st.regions.includes(k) ? "on" : ""}" data-act="region" data-k="${k}">${l}</button>`).join("")}</div></div>
       <div><div class="label" style="margin-bottom:8px">Leagues to scan</div><div class="chips">${LEAGUES.map((l) => `<button class="chip ${st.leagues.includes(l.key) ? "on" : ""}" data-act="set-league" data-k="${l.key}">${l.short}</button>`).join("")}</div></div>
       <div class="fgrid">
         <label class="field"><span>Player props (extra calls per event)</span><select id="set-props"><option value="0" ${!st.props ? "selected" : ""}>Off</option><option value="1" ${st.props ? "selected" : ""}>On</option></select></label>
@@ -1435,7 +1482,7 @@ function openSettings() {
 function updateCreditNote() {
   const n = $("#credit-note"); if (!n) return;
   const keep = S.settings; S.settings = S._draft; const c = creditEstimate(); S.settings = keep;
-  n.innerHTML = `Estimated cost: <b class="mono">${c}</b> API credits per refresh (markets × regions per league${S._draft.props ? ", plus props per event" : ""}).`;
+  n.innerHTML = `Estimated cost: up to <b class="mono">${c}</b> API credits per refresh (markets × ${S._draft.reqMode === "books" ? "each 10 books" : "regions"} per in-season league${S._draft.props ? ", plus props per event" : ""}). The free plan has 500 credits a month.${S.credits ? ` Last call cost <b class="mono">${S.credits.last ?? "?"}</b>, <b class="mono">${S.credits.rem}</b> left.` : ""}`;
 }
 function closeModal() { $("#modal").classList.remove("on"); $("#scrim").classList.remove("on"); $("#filters")?.classList.remove("on"); }
 
@@ -1461,6 +1508,7 @@ document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act, k = el.dataset.k;
   if (el.tagName === "INPUT" || el.tagName === "SELECT") return;
+  if (act === "go") { e.stopPropagation(); return; }
   switch (act) {
     case "view": S.view = el.dataset.v; LS.set("lbe.view", S.view); S.open.clear(); render(); window.scrollTo(0, 0); break;
     case "refresh": load(); break;
@@ -1499,6 +1547,7 @@ document.addEventListener("click", (e) => {
     case "add-bet": openAddBet(); break;
     case "save-bet": saveManualBet(); break;
     case "mode": S._draft.mode = el.dataset.val; el.parentElement.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === el)); break;
+    case "reqmode": S._draft.reqMode = el.dataset.val; el.parentElement.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === el)); updateCreditNote(); break;
     case "region": S._draft.regions = toggleIn(S._draft.regions, k); el.classList.toggle("on"); updateCreditNote(); break;
     case "set-league": S._draft.leagues = toggleIn(S._draft.leagues, k); el.classList.toggle("on"); updateCreditNote(); break;
     case "save-settings": {
